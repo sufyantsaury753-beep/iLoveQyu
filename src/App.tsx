@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { ToolGrid } from './components/ToolGrid';
@@ -6,13 +6,28 @@ import { Workspace } from './components/Workspace';
 import { TrustSection } from './components/TrustSection';
 import { FAQSection } from './components/FAQSection';
 import { Footer } from './components/Footer';
+import { OwnerModal } from './components/OwnerModal';
 import { PDF_TOOLS } from './data/tools';
+import { isOwnerLoggedIn, isSimulatingRegularUser } from './lib/admin';
 import type { ToolId } from './types';
 
 export function App() {
   const [activeToolId, setActiveToolId] = useState<ToolId | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // Owner Mode State
+  const [isOwnerModalOpen, setIsOwnerModalOpen] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+
+  const refreshOwnerStatus = () => {
+    const logged = isOwnerLoggedIn() && !isSimulatingRegularUser();
+    setIsOwner(logged);
+  };
+
+  useEffect(() => {
+    refreshOwnerStatus();
+  }, []);
 
   const activeTool = PDF_TOOLS.find((t) => t.id === activeToolId);
 
@@ -52,7 +67,19 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      <Navbar onReset={handleReset} onNavigate={handleNavigate} />
+      {/* Owner Modal */}
+      <OwnerModal
+        isOpen={isOwnerModalOpen}
+        onClose={() => setIsOwnerModalOpen(false)}
+        onStatusChange={refreshOwnerStatus}
+      />
+
+      <Navbar
+        onReset={handleReset}
+        onNavigate={handleNavigate}
+        isOwner={isOwner}
+        onOpenOwnerModal={() => setIsOwnerModalOpen(true)}
+      />
 
       <main className="flex-1">
         {activeTool ? (
@@ -75,7 +102,7 @@ export function App() {
         )}
       </main>
 
-      <Footer />
+      <Footer onOpenOwnerModal={() => setIsOwnerModalOpen(true)} />
     </div>
   );
 }

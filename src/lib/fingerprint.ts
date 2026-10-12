@@ -95,14 +95,17 @@ export async function getDeviceFingerprint(): Promise<string> {
   }
 }
 
+import { isOwnerLoggedIn, isSimulatingRegularUser } from './admin';
+
 /**
  * Check if the current device can still use the free trial or is VIP unlocked
  */
 export async function checkDeviceQuota(): Promise<DeviceQuotaInfo> {
   const deviceId = await getDeviceFingerprint();
 
-  // Check VIP / permanent unlock
-  const isVip = localStorage.getItem(VIP_KEY) === 'true';
+  // Check Owner status or VIP permanent unlock
+  const isOwner = isOwnerLoggedIn() && !isSimulatingRegularUser();
+  const isVip = isOwner || localStorage.getItem(VIP_KEY) === 'true';
 
   // Check stored quota for this specific device
   const storedData = localStorage.getItem(`${STORAGE_KEY}_${deviceId}`) || localStorage.getItem(STORAGE_KEY);

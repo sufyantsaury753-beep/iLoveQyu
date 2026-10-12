@@ -10,6 +10,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { redeemAccessCode, markDeviceUnlocked } from '../lib/fingerprint';
+import { getOwnerSettings } from '../lib/admin';
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
   const [inputCode, setInputCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const ownerSettings = getOwnerSettings();
 
   if (!isOpen) return null;
 
@@ -143,19 +145,40 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
                   <span className="text-indigo-600">iLoveQyu</span>
                 </div>
 
-                {/* Simulated QR Pattern */}
-                <div className="w-32 h-32 bg-slate-950 p-2 rounded-lg flex items-center justify-center text-white">
-                  <QrCode className="w-28 h-28 text-white" />
-                </div>
+                {/* QR Pattern or Custom QRIS Image */}
+                {ownerSettings.qrisImageUrl ? (
+                  <img
+                    src={ownerSettings.qrisImageUrl}
+                    alt="QRIS DANA"
+                    className="w-36 h-36 object-contain rounded-lg"
+                  />
+                ) : (
+                  <div className="w-32 h-32 bg-slate-950 p-2 rounded-lg flex items-center justify-center text-white">
+                    <QrCode className="w-28 h-28 text-white" />
+                  </div>
+                )}
 
-                <p className="text-[10px] font-bold text-slate-600">
-                  Nominal: Rp 3.000
+                <p className="text-[10px] font-bold text-slate-700">
+                  {ownerSettings.danaNumber ? `DANA: ${ownerSettings.danaNumber} • ` : ''}Nominal: Rp 3.000
                 </p>
               </div>
 
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                Bisa di-scan menggunakan <strong>BCA, Mandiri, BRI, GoPay, OVO, Dana, ShopeePay</strong> atau bank lainnya.
+                Bisa di-scan menggunakan <strong>BCA, Mandiri, BRI, GoPay, OVO, Dana, ShopeePay</strong> atau m-banking lainnya.
               </p>
+
+              {ownerSettings.waNumber && (
+                <div>
+                  <a
+                    href={`https://wa.me/${ownerSettings.waNumber}?text=Halo%20Admin%20saya%20sudah%20transfer%20Rp3000%20untuk%20iLoveQyu`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                  >
+                    <span>💬 Kirim Bukti Pembayaran ke WhatsApp</span>
+                  </a>
+                </div>
+              )}
 
               <button
                 onClick={handleConfirmQRIS}
