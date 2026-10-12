@@ -9,6 +9,8 @@ import {
   Scissors,
   ArrowRight,
   FileBadge2,
+  FileText,
+  FileType,
 } from 'lucide-react';
 
 interface ToolGridProps {
@@ -21,6 +23,10 @@ const getToolIcon = (iconName: string, isMobile = false) => {
   switch (iconName) {
     case 'FileBadge2':
       return <FileBadge2 {...iconProps} />;
+    case 'FileText':
+      return <FileText {...iconProps} />;
+    case 'FileType':
+      return <FileType {...iconProps} />;
     case 'Files':
       return <Files {...iconProps} />;
     case 'Split':

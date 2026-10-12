@@ -29,7 +29,18 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} iLoveQyu. All rights reserved.</p>
+          <p className="flex items-center gap-1 flex-wrap justify-center sm:justify-start">
+            <span>© {new Date().getFullYear()} iLoveQyu by</span>
+            <a
+              href="https://piantsa.my.id/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors"
+            >
+              piantsa
+            </a>
+            <span>. All rights reserved.</span>
+          </p>
           <p className="flex items-center gap-1.5 flex-wrap justify-center sm:justify-start">
             <span>Dibuat dengan</span>
             <Heart className="w-3.5 h-3.5 text-rose-500 fill-current inline" />

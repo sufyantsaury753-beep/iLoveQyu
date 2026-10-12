@@ -15,6 +15,7 @@ import {
   smartCompressToTarget,
   type CompressionResult,
 } from '../lib/compressor';
+import { convertPdfToWord, convertWordToPdf } from '../lib/converters';
 import {
   checkDeviceQuota,
   recordFreeTrialUsed,
@@ -87,7 +88,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isImageTool = tool.id === 'images-to-pdf';
-  const accepts = isImageTool ? 'image/png, image/jpeg, image/jpg' : 'application/pdf';
+  const isWordInputTool = tool.id === 'word-to-pdf';
+  const accepts = isImageTool
+    ? 'image/png, image/jpeg, image/jpg'
+    : isWordInputTool
+    ? '.docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword'
+    : 'application/pdf';
 
   // Load Device Fingerprint & Quota on Mount
   useEffect(() => {
@@ -107,7 +113,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
       const file = selectedFiles[i];
       let pageCount = 1;
 
-      if (!isImageTool && file.type === 'application/pdf') {
+      if (!isImageTool && !isWordInputTool && file.type === 'application/pdf') {
         pageCount = await getPDFPageCount(file);
       }
 
@@ -124,7 +130,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
       tool.id === 'split' ||
       tool.id === 'rotate' ||
       tool.id === 'watermark' ||
-      tool.id === 'cpns-compress'
+      tool.id === 'cpns-compress' ||
+      tool.id === 'pdf-to-word' ||
+      tool.id === 'word-to-pdf'
     ) {
       // These process 1 document at a time
       setFiles([newItems[0]]);
@@ -218,6 +226,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
       } else if (tool.id === 'images-to-pdf') {
         resultData = await imagesToPDF(files.map((f) => f.file));
         outputName = `images_${Date.now()}.pdf`;
+      } else if (tool.id === 'pdf-to-word') {
+        const file = files[0].file;
+        const baseName = file.name.replace(/\.[^/.]+$/, '');
+        setStatusMessage('Mengekstrak teks & menyusun dokumen Word (.docx)...');
+        const docxBlob = await convertPdfToWord(file);
+        outputName = `${baseName}.docx`;
+        const arrayBuffer = await docxBlob.arrayBuffer();
+        resultData = new Uint8Array(arrayBuffer);
+      } else if (tool.id === 'word-to-pdf') {
+        const file = files[0].file;
+        const baseName = file.name.replace(/\.[^/.]+$/, '');
+        setStatusMessage('Membaca Word (.docx) & merender ke PDF...');
+        resultData = await convertWordToPdf(file);
+        outputName = `${baseName}.pdf`;
       } else {
         throw new Error('Fitur belum diimplementasikan');
       }
@@ -254,7 +276,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
         }
       } else {
         // Normal tools remain completely free
-        downloadBlob(resultData, outputName);
+        const mime = outputName.endsWith('.docx')
+          ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          : 'application/pdf';
+        downloadBlob(resultData, outputName, mime);
         setLastDownloadedData({ data: resultData, fileName: outputName });
 
         confetti({
@@ -307,7 +332,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
         setIsPaywallOpen(true);
       }
     } else {
-      downloadBlob(lastDownloadedData.data, lastDownloadedData.fileName);
+      const mime = lastDownloadedData.fileName.endsWith('.docx')
+        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        : 'application/pdf';
+      downloadBlob(lastDownloadedData.data, lastDownloadedData.fileName, mime);
     }
   };
 
@@ -423,11 +451,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
         </div>
 
         <h3 className="text-lg font-bold text-slate-900">
-          Pilih file {isImageTool ? 'gambar (JPG, PNG)' : 'PDF'} atau tarik ke sini
+          Pilih file {isImageTool ? 'gambar (JPG, PNG)' : isWordInputTool ? 'Word (.docx)' : 'PDF'} atau tarik ke sini
         </h3>
         <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
           {tool.id === 'cpns-compress'
             ? 'Pilih scan KTP, Ijazah, Transkrip, atau Surat Lamaran Anda.'
+            : tool.id === 'pdf-to-word'
+            ? 'Pilih dokumen PDF untuk diubah menjadi file Microsoft Word (.docx).'
+            : tool.id === 'word-to-pdf'
+            ? 'Pilih dokumen Word (.docx) untuk dikonversi menjadi format PDF.'
             : tool.id === 'merge' || tool.id === 'images-to-pdf'
             ? 'Dapat memilih beberapa file sekaligus untuk digabungkan.'
             : 'Pilih file dokumen untuk diproses secara instan.'}
@@ -795,6 +827,26 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
               Setiap gambar akan dijadikan satu halaman penuh PDF dengan resolusi asli gambar.
             </p>
           )}
+
+          {/* PDF to Word Settings */}
+          {tool.id === 'pdf-to-word' && (
+            <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-100 text-sm text-slate-700">
+              <p className="font-semibold text-indigo-900 mb-1">Konversi Cerdas ke Microsoft Word (.docx)</p>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Teks, judul, dan struktur halaman akan diekstrak langsung di browsermu dan disusun menjadi file .docx yang dapat diedit langsung di Microsoft Word, WPS Office, maupun Google Docs.
+              </p>
+            </div>
+          )}
+
+          {/* Word to PDF Settings */}
+          {tool.id === 'word-to-pdf' && (
+            <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-100 text-sm text-slate-700">
+              <p className="font-semibold text-indigo-900 mb-1">Konversi Cepat Word (.docx) ke PDF</p>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Dokumen Word Anda akan dikonversi ke format PDF berstandar A4 dengan tipografi yang rapi, 100% diproses di browser tanpa upload ke server luar.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -859,6 +911,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
                 <span>
                   {tool.id === 'cpns-compress'
                     ? 'Optimasi Sesuai Syarat Sekarang'
+                    : tool.id === 'pdf-to-word'
+                    ? 'Konversi ke Word (.docx) Sekarang'
+                    : tool.id === 'word-to-pdf'
+                    ? 'Konversi ke PDF Sekarang'
                     : tool.id === 'merge'
                     ? 'Gabungkan PDF Sekarang'
                     : tool.id === 'split'
