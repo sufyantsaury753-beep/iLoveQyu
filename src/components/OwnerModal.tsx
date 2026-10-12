@@ -20,8 +20,6 @@ import {
   type OwnerSettings,
 } from '../lib/admin';
 import { resetDeviceQuota } from '../lib/fingerprint';
-import { testLibreOfficeConnection } from '../lib/converters';
-
 interface OwnerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,13 +42,8 @@ export const OwnerModal: React.FC<OwnerModalProps> = ({
     qrisImageUrl: '',
     danaNumber: '',
     waNumber: '',
-    libreOfficeApiUrl: 'https://demo.gotenberg.dev',
   });
   const [saveNotification, setSaveNotification] = useState<string | null>(null);
-  const [testApiResult, setTestApiResult] = useState<{
-    status: 'idle' | 'testing' | 'success' | 'error';
-    message?: string;
-  }>({ status: 'idle' });
 
   useEffect(() => {
     if (isOpen) {
@@ -100,25 +93,9 @@ export const OwnerModal: React.FC<OwnerModalProps> = ({
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     saveOwnerSettings(settings);
-    setSaveNotification('Pengaturan DANA & LibreOffice Cloud berhasil disimpan!');
+    setSaveNotification('Pengaturan DANA & QRIS berhasil disimpan!');
     setTimeout(() => setSaveNotification(null), 3000);
     onStatusChange();
-  };
-
-  const handleTestApi = async () => {
-    setTestApiResult({ status: 'testing' });
-    const res = await testLibreOfficeConnection(settings.libreOfficeApiUrl);
-    if (res.success) {
-      setTestApiResult({
-        status: 'success',
-        message: `Terkoneksi! LibreOffice Server (${res.version || 'Online'}) Siap Pakai.`,
-      });
-    } else {
-      setTestApiResult({
-        status: 'error',
-        message: `Gagal: ${res.error || 'Server tidak merespons'}`,
-      });
-    }
   };
 
   const handleResetQuota = async () => {
@@ -303,50 +280,12 @@ export const OwnerModal: React.FC<OwnerModalProps> = ({
                   />
                 </div>
 
-                {/* LibreOffice Cloud API Engine Section */}
-                <div className="pt-3 border-t border-slate-200">
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-bold text-slate-800">
-                      LibreOffice Cloud API (Opsi A):
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleTestApi}
-                      disabled={testApiResult.status === 'testing'}
-                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer disabled:opacity-50"
-                    >
-                      {testApiResult.status === 'testing' ? 'Menguji...' : 'Uji Koneksi'}
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={settings.libreOfficeApiUrl || ''}
-                    onChange={(e) =>
-                      setSettings({ ...settings, libreOfficeApiUrl: e.target.value })
-                    }
-                    placeholder="https://demo.gotenberg.dev atau URL server kamu"
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-mono text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
-                  />
-                  {testApiResult.message && (
-                    <p
-                      className={`text-[10px] mt-1 font-semibold ${
-                        testApiResult.status === 'success' ? 'text-emerald-600' : 'text-rose-600'
-                      }`}
-                    >
-                      {testApiResult.message}
-                    </p>
-                  )}
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    Mesin LibreOffice membuat hasil konversi Word ke PDF 100% identik dengan iLovePDF & MS Word (Cover terpisah, footnote di bawah, margin 4-4-3-3 cm, 21 halaman utuh).
-                  </p>
-                </div>
-
                 <button
                   type="submit"
                   className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>Simpan Semua Pengaturan</span>
+                  <span>Simpan Pengaturan DANA</span>
                 </button>
               </form>
 

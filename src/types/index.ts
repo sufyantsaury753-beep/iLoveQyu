@@ -1,7 +1,5 @@
 export type ToolId = 
   | 'cpns-compress'
-  | 'pdf-to-word'
-  | 'word-to-pdf'
   | 'merge' 
   | 'split' 
   | 'rotate' 

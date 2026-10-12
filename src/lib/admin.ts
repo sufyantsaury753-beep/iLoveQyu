@@ -8,7 +8,6 @@ export interface OwnerSettings {
   qrisImageUrl: string;
   danaNumber: string;
   waNumber: string;
-  libreOfficeApiUrl: string;
 }
 
 const OWNER_ACTIVE_KEY = 'iloveqyu_owner_active_v1';
@@ -22,7 +21,6 @@ export const DEFAULT_SETTINGS: OwnerSettings = {
   qrisImageUrl: '',
   danaNumber: '',
   waNumber: '',
-  libreOfficeApiUrl: 'https://demo.gotenberg.dev',
 };
 
 /**
