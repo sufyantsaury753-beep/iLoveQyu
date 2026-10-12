@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { PDFTool, UploadedFileItem } from '../types';
 import {
   formatBytes,
@@ -15,6 +15,12 @@ import {
   smartCompressToTarget,
   type CompressionResult,
 } from '../lib/compressor';
+import {
+  checkDeviceQuota,
+  recordFreeTrialUsed,
+  type DeviceQuotaInfo,
+} from '../lib/fingerprint';
+import { PaywallModal } from './PaywallModal';
 import confetti from 'canvas-confetti';
 import {
   ArrowLeft,
@@ -36,6 +42,8 @@ import {
   Sliders,
   Check,
   TrendingDown,
+  Smartphone,
+  Crown,
 } from 'lucide-react';
 
 interface WorkspaceProps {
@@ -50,6 +58,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastDownloadedData, setLastDownloadedData] = useState<{
+    data: Uint8Array;
+    fileName: string;
+  } | null>(null);
+
+  // Device Fingerprint Quota State
+  const [deviceQuota, setDeviceQuota] = useState<DeviceQuotaInfo | null>(null);
+  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [pendingDownload, setPendingDownload] = useState<{
     data: Uint8Array;
     fileName: string;
   } | null>(null);
@@ -72,6 +88,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
 
   const isImageTool = tool.id === 'images-to-pdf';
   const accepts = isImageTool ? 'image/png, image/jpeg, image/jpg' : 'application/pdf';
+
+  // Load Device Fingerprint & Quota on Mount
+  useEffect(() => {
+    checkDeviceQuota().then(setDeviceQuota);
+  }, []);
 
   // File Upload Handlers
   const handleFilesSelected = async (selectedFiles: FileList | null) => {
@@ -201,25 +222,92 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
         throw new Error('Fitur belum diimplementasikan');
       }
 
-      // Download automatically
-      downloadBlob(resultData, outputName);
-      setLastDownloadedData({ data: resultData, fileName: outputName });
+      // Check Quota Enforcement for the paid/special tool
+      if (tool.id === 'cpns-compress') {
+        const quota = await checkDeviceQuota();
+        setDeviceQuota(quota);
 
-      // Celebration Confetti
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { y: 0.65 },
-        colors: ['#6366F1', '#8B5CF6', '#EC4899', '#10B981'],
-      });
+        if (!quota.hasUsedFreeTrial || quota.isVipUnlocked) {
+          // Free trial or VIP: download automatically
+          downloadBlob(resultData, outputName);
+          setLastDownloadedData({ data: resultData, fileName: outputName });
 
-      setStatusMessage('Selesai! Dokumen berhasil diproses dan otomatis terunduh.');
+          if (!quota.isVipUnlocked) {
+            await recordFreeTrialUsed();
+            const updated = await checkDeviceQuota();
+            setDeviceQuota(updated);
+          }
+
+          confetti({
+            particleCount: 80,
+            spread: 60,
+            origin: { y: 0.65 },
+            colors: ['#6366F1', '#8B5CF6', '#EC4899', '#10B981'],
+          });
+
+          setStatusMessage('Selesai! 1x Kuota Coba Gratis telah Anda gunakan. Berkas berhasil diunduh.');
+        } else {
+          // Free trial already consumed! Trigger Paywall Modal!
+          setPendingDownload({ data: resultData, fileName: outputName });
+          setIsPaywallOpen(true);
+          setStatusMessage('Dokumen selesai dioptimasi! Buka kunci untuk mengunduh.');
+        }
+      } else {
+        // Normal tools remain completely free
+        downloadBlob(resultData, outputName);
+        setLastDownloadedData({ data: resultData, fileName: outputName });
+
+        confetti({
+          particleCount: 80,
+          spread: 60,
+          origin: { y: 0.65 },
+          colors: ['#6366F1', '#8B5CF6', '#EC4899', '#10B981'],
+        });
+
+        setStatusMessage('Selesai! Dokumen berhasil diproses dan otomatis terunduh.');
+      }
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses PDF.';
       setErrorMessage(msg);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handlePaywallUnlocked = async () => {
+    setIsPaywallOpen(false);
+    const updated = await checkDeviceQuota();
+    setDeviceQuota(updated);
+
+    if (pendingDownload) {
+      downloadBlob(pendingDownload.data, pendingDownload.fileName);
+      setLastDownloadedData(pendingDownload);
+
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.65 },
+        colors: ['#6366F1', '#8B5CF6', '#EC4899', '#10B981'],
+      });
+
+      setStatusMessage('Pembayaran terkonfirmasi! Dokumen berhasil diunduh.');
+    }
+  };
+
+  const handleDownloadAgain = async () => {
+    if (!lastDownloadedData) return;
+
+    if (tool.id === 'cpns-compress') {
+      const quota = await checkDeviceQuota();
+      if (!quota.hasUsedFreeTrial || quota.isVipUnlocked) {
+        downloadBlob(lastDownloadedData.data, lastDownloadedData.fileName);
+      } else {
+        setPendingDownload(lastDownloadedData);
+        setIsPaywallOpen(true);
+      }
+    } else {
+      downloadBlob(lastDownloadedData.data, lastDownloadedData.fileName);
     }
   };
 
@@ -238,6 +326,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={isPaywallOpen}
+        onClose={() => setIsPaywallOpen(false)}
+        onUnlockedSuccess={handlePaywallUnlocked}
+        deviceId={deviceQuota?.deviceId || 'dev_syncing'}
+      />
+
       {/* Back Button & Tool Header */}
       <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-200/80">
         <button
@@ -248,9 +344,32 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
           <span>Kembali ke Semua Alat</span>
         </button>
 
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-          <Lock className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Memori Lokal • Zero Cloud Storage</span>
+        <div className="flex items-center gap-3">
+          {tool.id === 'cpns-compress' && deviceQuota && (
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold">
+              {deviceQuota.isVipUnlocked ? (
+                <span className="flex items-center gap-1 text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
+                  <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  VIP Unlocked
+                </span>
+              ) : !deviceQuota.hasUsedFreeTrial ? (
+                <span className="flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                  <Check className="w-3.5 h-3.5" />
+                  1x Coba Gratis
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                  <Lock className="w-3.5 h-3.5" />
+                  Rp 3.000 / berkas
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+            <Lock className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Memori Lokal • Zero Cloud Storage</span>
+          </div>
         </div>
       </div>
 
@@ -258,10 +377,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
       <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-xs mb-8">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              {tool.title}
-            </h2>
-            <p className="mt-1 text-sm text-slate-600">{tool.description}</p>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                {tool.title}
+              </h2>
+            </div>
+            <p className="text-sm text-slate-600">{tool.description}</p>
+
+            {tool.id === 'cpns-compress' && deviceQuota && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-slate-500 font-mono">
+                <Smartphone className="w-3.5 h-3.5 text-slate-400" />
+                <span>Sidik Jari Perangkat: <strong>{deviceQuota.deviceId}</strong></span>
+              </div>
+            )}
           </div>
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
             {tool.badge || 'Client-Side'}
@@ -688,9 +816,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
             <p className="font-semibold">{statusMessage}</p>
             {lastDownloadedData && (
               <button
-                onClick={() =>
-                  downloadBlob(lastDownloadedData.data, lastDownloadedData.fileName)
-                }
+                onClick={handleDownloadAgain}
                 className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 underline hover:text-emerald-900 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" /> Unduh Dokumen Lagi
