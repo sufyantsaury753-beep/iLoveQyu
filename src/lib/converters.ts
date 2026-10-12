@@ -478,11 +478,11 @@ export async function testLibreOfficeConnection(customUrl?: string): Promise<{ s
 }
 
 /**
- * Convert Word (.docx) to PDF using LibreOffice Engine (Gotenberg API)
- * Guarantees 100% native layout fidelity: covers, footnotes at page bottom, margins, TOC dot leaders, tables.
+ * Convert Word (.docx) to PDF using LibreOffice Engine (via Vercel Serverless Proxy / Gotenberg)
+ * Guarantees 100% native layout fidelity: covers, footnotes at page bottom, margins, Arabic text, TOC dot leaders, tables.
  */
 export async function convertWordToPdfLibreOffice(file: File): Promise<Uint8Array> {
-  const endpoint = getLibreOfficeApiUrl().replace(/\/+$/, '');
+  const customUrl = getLibreOfficeApiUrl();
   const formData = new FormData();
   formData.append('files', file, file.name);
 
@@ -490,15 +490,27 @@ export async function convertWordToPdfLibreOffice(file: File): Promise<Uint8Arra
   // 60-second timeout for large academic documents (e.g., 20+ page makalah/skripsi)
   const timeoutId = setTimeout(() => controller.abort(), 60000);
 
+  // If on Vercel, use same-domain /api/convert (zero CORS).
+  // If on GitHub Pages or local preview, use https://i-love-qyu.vercel.app/api/convert.
+  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+  const proxyUrl = isVercel ? '/api/convert' : 'https://i-love-qyu.vercel.app/api/convert';
+
+  const headers: Record<string, string> = {};
+  if (customUrl && customUrl !== 'https://demo.gotenberg.dev') {
+    headers['x-gotenberg-url'] = customUrl;
+  }
+
   try {
-    const response = await fetch(`${endpoint}/forms/libreoffice/convert`, {
+    const response = await fetch(proxyUrl, {
       method: 'POST',
+      headers,
       body: formData,
       signal: controller.signal,
     });
 
     if (!response.ok) {
-      throw new Error(`LibreOffice Server HTTP ${response.status}: ${response.statusText}`);
+      const errText = await response.text().catch(() => '');
+      throw new Error(`LibreOffice Proxy HTTP ${response.status}: ${errText || response.statusText}`);
     }
 
     const blob = await response.blob();
