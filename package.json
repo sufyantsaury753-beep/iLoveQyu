@@ -16,6 +16,7 @@
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "docx": "^9.10.0",
+    "docx-preview": "^0.4.1",
     "html2canvas-pro": "^2.5.2",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.55.0",

@@ -175,11 +175,14 @@ export async function convertPdfToWord(file: File): Promise<Blob> {
           const prev = line.chunks[i - 1];
           const hasSpace = assembledText.endsWith(' ') || c.text.startsWith(' ');
           const gap = c.x - (prev.x + prev.width);
-          // Insert space if there is any positive distance between separate words, or column gap
+          // Insert space or column tab between separate words
           if (!hasSpace) {
-            if (gap > 20) {
+            if (gap > 18) {
               assembledText += '    '; // column tab
-            } else if (gap > 0.5 || c.x > prev.x + prev.width * 0.92) {
+            } else if (gap > 0.1) {
+              assembledText += ' ';
+            } else if (gap > -2.5 && (prev.text.length > 1 || c.text.length > 1)) {
+              // PDF.js font advance width often slightly overshoots the start of the next word
               assembledText += ' ';
             }
           }
@@ -471,7 +474,7 @@ export async function convertWordToPdf(file: File): Promise<Uint8Array> {
   container.style.pointerEvents = 'none';
   container.style.backgroundColor = '#ffffff';
   container.style.color = '#111827';
-  container.style.fontFamily = "'Segoe UI', Arial, Helvetica, sans-serif";
+  container.style.fontFamily = "'Calibri', 'Aptos', 'Segoe UI', Arial, Helvetica, sans-serif";
   container.style.fontSize = '14px';
   container.style.lineHeight = '1.65';
   container.style.padding = '44px 50px';
