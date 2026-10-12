@@ -13,8 +13,6 @@ import type { ToolId } from './types';
 
 export function App() {
   const [activeToolId, setActiveToolId] = useState<ToolId | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
 
   // Owner Mode State
   const [isOwnerModalOpen, setIsOwnerModalOpen] = useState(false);
@@ -31,18 +29,6 @@ export function App() {
 
   const activeTool = PDF_TOOLS.find((t) => t.id === activeToolId);
 
-  // Filter tools based on search and category
-  const filteredTools = PDF_TOOLS.filter((tool) => {
-    const matchesSearch =
-      tool.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.description.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesCategory =
-      selectedCategory === 'all' || tool.category === selectedCategory;
-
-    return matchesSearch && matchesCategory;
-  });
-
   const handleSelectTool = (id: ToolId) => {
     setActiveToolId(id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -50,8 +36,6 @@ export function App() {
 
   const handleReset = () => {
     setActiveToolId(null);
-    setSearchQuery('');
-    setSelectedCategory('all');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -86,14 +70,9 @@ export function App() {
           <Workspace tool={activeTool} onBack={handleReset} />
         ) : (
           <>
-            <Hero
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              selectedCategory={selectedCategory}
-              setSelectedCategory={setSelectedCategory}
-            />
+            <Hero />
 
-            <ToolGrid tools={filteredTools} onSelectTool={handleSelectTool} />
+            <ToolGrid tools={PDF_TOOLS} onSelectTool={handleSelectTool} />
 
             <TrustSection />
 
