@@ -16,8 +16,8 @@ interface ToolGridProps {
   onSelectTool: (id: ToolId) => void;
 }
 
-const getToolIcon = (iconName: string) => {
-  const iconProps = { className: 'w-6 h-6' };
+const getToolIcon = (iconName: string, isMobile = false) => {
+  const iconProps = { className: isMobile ? 'w-6 h-6' : 'w-6 h-6' };
   switch (iconName) {
     case 'FileBadge2':
       return <FileBadge2 {...iconProps} />;
@@ -52,8 +52,55 @@ export const ToolGrid: React.FC<ToolGridProps> = ({ tools, onSelectTool }) => {
   }
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      {/* ======================================================== */}
+      {/* 1. MOBILE VIEW (< sm / < 640px): 3-Column Circular Icons */}
+      {/* ======================================================== */}
+      <div className="grid grid-cols-3 gap-y-7 gap-x-2.5 sm:hidden px-1">
+        {tools.map((tool) => (
+          <div
+            key={tool.id}
+            onClick={() => onSelectTool(tool.id)}
+            className="group flex flex-col items-center text-center cursor-pointer select-none active:scale-90 transition-transform duration-150"
+          >
+            {/* Circular Icon Button */}
+            <div className="relative">
+              <div
+                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+                  tool.featured
+                    ? 'bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/30 ring-2 ring-indigo-300'
+                    : 'bg-gradient-to-tr from-indigo-50 to-violet-50 text-indigo-600 border border-indigo-100/90 shadow-xs group-hover:bg-indigo-100/80 group-hover:border-indigo-300'
+                }`}
+              >
+                {getToolIcon(tool.icon, true)}
+              </div>
+
+              {/* Mini Badge for Mobile */}
+              {tool.badge && (
+                <span
+                  className={`absolute -top-1 -right-2 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold shadow-xs ${
+                    tool.featured
+                      ? 'bg-rose-500 text-white ring-1 ring-white'
+                      : 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                  }`}
+                >
+                  {tool.featured ? 'HOT' : tool.popular ? 'TOP' : 'PRO'}
+                </span>
+              )}
+            </div>
+
+            {/* Title Underneath Circle */}
+            <span className="mt-2 text-[11px] font-semibold text-slate-800 leading-snug text-center line-clamp-2 px-1 group-hover:text-indigo-600 transition-colors">
+              {tool.title}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ======================================================== */}
+      {/* 2. TABLET & DESKTOP VIEW (>= sm): Modern SaaS Card Grid  */}
+      {/* ======================================================== */}
+      <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {tools.map((tool) => (
           <div
             key={tool.id}
