@@ -173,9 +173,15 @@ export async function convertPdfToWord(file: File): Promise<Blob> {
         const c = line.chunks[i];
         if (i > 0) {
           const prev = line.chunks[i - 1];
-          // If distance between chunks > 2pt, insert a space
-          if (c.x - (prev.x + prev.width) > 2) {
-            assembledText += ' ';
+          const hasSpace = assembledText.endsWith(' ') || c.text.startsWith(' ');
+          const gap = c.x - (prev.x + prev.width);
+          // Insert space if there is any positive distance between separate words, or column gap
+          if (!hasSpace) {
+            if (gap > 20) {
+              assembledText += '    '; // column tab
+            } else if (gap > 0.5 || c.x > prev.x + prev.width * 0.92) {
+              assembledText += ' ';
+            }
           }
         }
         assembledText += c.text;
@@ -476,20 +482,65 @@ export async function convertWordToPdf(file: File): Promise<Uint8Array> {
   container.innerHTML = `
     <style>
       #word-to-pdf-temp-container { background-color: #ffffff !important; color: #111827 !important; }
-      #word-to-pdf-temp-container h1 { font-size: 22px; font-weight: bold; margin-bottom: 14px; margin-top: 20px; color: #0f172a; line-height: 1.3; }
-      #word-to-pdf-temp-container h2 { font-size: 18px; font-weight: bold; margin-bottom: 12px; margin-top: 18px; color: #1e293b; line-height: 1.35; }
-      #word-to-pdf-temp-container h3 { font-size: 15px; font-weight: bold; margin-bottom: 10px; margin-top: 14px; color: #334155; line-height: 1.4; }
-      #word-to-pdf-temp-container p { margin-top: 0; margin-bottom: 12px; text-align: justify; text-justify: inter-word; color: #111827; }
+      #word-to-pdf-temp-container h1 { font-size: 16px; font-weight: bold; margin-bottom: 6px; margin-top: 14px; color: #000000; text-align: center; }
+      #word-to-pdf-temp-container h2 { font-size: 14px; font-weight: bold; margin-bottom: 5px; margin-top: 10px; color: #000000; text-align: center; }
+      #word-to-pdf-temp-container h3 { font-size: 13px; font-weight: bold; margin-bottom: 4px; margin-top: 8px; color: #000000; text-align: center; }
+      #word-to-pdf-temp-container p { margin-top: 0; margin-bottom: 8px; text-align: justify; line-height: 1.5; color: #111827; }
       #word-to-pdf-temp-container ul, #word-to-pdf-temp-container ol { margin-left: 24px; margin-bottom: 12px; color: #111827; }
       #word-to-pdf-temp-container li { margin-bottom: 4px; }
-      #word-to-pdf-temp-container table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12.5px; page-break-inside: avoid; }
-      #word-to-pdf-temp-container th, #word-to-pdf-temp-container td { border: 1px solid #cbd5e1; padding: 7px 10px; text-align: left; }
-      #word-to-pdf-temp-container th { background-color: #f1f5f9; font-weight: 600; color: #0f172a; }
+      #word-to-pdf-temp-container table {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-collapse: collapse !important;
+        margin-top: 14px !important;
+        margin-bottom: 16px !important;
+        font-size: 11px !important;
+        table-layout: auto !important;
+        page-break-inside: auto !important;
+      }
+      #word-to-pdf-temp-container th, #word-to-pdf-temp-container td {
+        border: 1px solid #94a3b8 !important;
+        padding: 6px 8px !important;
+        vertical-align: middle !important;
+        text-align: left !important;
+        word-break: normal !important;
+      }
+      #word-to-pdf-temp-container th {
+        background-color: #e0f2fe !important;
+        font-weight: 700 !important;
+        color: #0c4a6e !important;
+        text-align: center !important;
+      }
+      #word-to-pdf-temp-container td:first-child {
+        text-align: center !important;
+        width: 32px !important;
+      }
+      #word-to-pdf-temp-container td:nth-child(2) {
+        text-align: center !important;
+        width: 90px !important;
+      }
       #word-to-pdf-temp-container img { max-width: 100%; height: auto; margin: 12px 0; page-break-inside: avoid; }
       #word-to-pdf-temp-container blockquote { border-left: 4px solid #6366f1; padding-left: 12px; margin: 12px 0; color: #475569; font-style: italic; }
     </style>
     <div>${htmlContent}</div>
   `;
+
+  // Center header paragraphs preceding a table if they are title lines
+  const table = container.querySelector('table');
+  if (table) {
+    const allP = container.querySelectorAll('p');
+    allP.forEach((p) => {
+      if (table.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_PRECEDING) {
+        if (p.textContent && p.textContent.trim().length < 85) {
+          p.style.textAlign = 'center';
+          p.style.fontWeight = 'bold';
+          p.style.marginBottom = '3px';
+          p.style.fontSize = '12px';
+          p.style.color = '#000000';
+        }
+      }
+    });
+  }
 
   document.body.appendChild(container);
 
@@ -507,7 +558,6 @@ export async function convertWordToPdf(file: File): Promise<Uint8Array> {
       width: 523, // 595.28 pt A4 width - 72pt margins
       windowWidth: 794,
       html2canvas: {
-        scale: 2,
         useCORS: true,
         logging: false,
       },
