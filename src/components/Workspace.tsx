@@ -17,7 +17,6 @@ import {
 } from '../lib/compressor';
 import {
   checkDeviceQuota,
-  recordFreeTrialUsed,
   type DeviceQuotaInfo,
 } from '../lib/fingerprint';
 import { PaywallModal } from './PaywallModal';
@@ -42,8 +41,6 @@ import {
   Sliders,
   Check,
   TrendingDown,
-  Smartphone,
-  Crown,
 } from 'lucide-react';
 
 interface WorkspaceProps {
@@ -103,6 +100,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
     setErrorMessage(null);
     setLastDownloadedData(null);
     setCompressionResult(null);
+    setPendingDownload(null);
 
     const newItems: UploadedFileItem[] = [];
 
@@ -225,50 +223,22 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
         throw new Error('Fitur belum diimplementasikan');
       }
 
-      // Check Quota Enforcement for the paid/special tool
-      if (tool.id === 'cpns-compress') {
-        const quota = await checkDeviceQuota();
-        setDeviceQuota(quota);
+      // All current tools are 100% free for public benefit
+      downloadBlob(resultData, outputName);
+      setLastDownloadedData({ data: resultData, fileName: outputName });
 
-        if (!quota.hasUsedFreeTrial || quota.isVipUnlocked) {
-          // Free trial or VIP: download automatically
-          downloadBlob(resultData, outputName);
-          setLastDownloadedData({ data: resultData, fileName: outputName });
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { y: 0.65 },
+        colors: ['#6366F1', '#8B5CF6', '#EC4899', '#10B981'],
+      });
 
-          if (!quota.isVipUnlocked) {
-            await recordFreeTrialUsed();
-            const updated = await checkDeviceQuota();
-            setDeviceQuota(updated);
-          }
-
-          confetti({
-            particleCount: 80,
-            spread: 60,
-            origin: { y: 0.65 },
-            colors: ['#6366F1', '#8B5CF6', '#EC4899', '#10B981'],
-          });
-
-          setStatusMessage('Selesai! 1x Kuota Coba Gratis telah Anda gunakan. Berkas berhasil diunduh.');
-        } else {
-          // Free trial already consumed! Trigger Paywall Modal!
-          setPendingDownload({ data: resultData, fileName: outputName });
-          setIsPaywallOpen(true);
-          setStatusMessage('Dokumen selesai dioptimasi! Buka kunci untuk mengunduh.');
-        }
-      } else {
-        // Normal tools remain completely free
-        downloadBlob(resultData, outputName);
-        setLastDownloadedData({ data: resultData, fileName: outputName });
-
-        confetti({
-          particleCount: 80,
-          spread: 60,
-          origin: { y: 0.65 },
-          colors: ['#6366F1', '#8B5CF6', '#EC4899', '#10B981'],
-        });
-
-        setStatusMessage('Selesai! Dokumen berhasil diproses dan otomatis terunduh.');
-      }
+      setStatusMessage(
+        tool.id === 'cpns-compress'
+          ? 'Selesai! Berkas berhasil dioptimasi sesuai standar resmi dan otomatis terunduh.'
+          : 'Selesai! Dokumen berhasil diproses dan otomatis terunduh.'
+      );
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses PDF.';
@@ -286,6 +256,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
     if (pendingDownload) {
       downloadBlob(pendingDownload.data, pendingDownload.fileName);
       setLastDownloadedData(pendingDownload);
+      setPendingDownload(null);
 
       confetti({
         particleCount: 100,
@@ -298,23 +269,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
     }
   };
 
-  const handleDownloadAgain = async () => {
+  const handleDownloadAgain = () => {
     if (!lastDownloadedData) return;
-
-    if (tool.id === 'cpns-compress') {
-      const quota = await checkDeviceQuota();
-      if (!quota.hasUsedFreeTrial || quota.isVipUnlocked) {
-        downloadBlob(lastDownloadedData.data, lastDownloadedData.fileName);
-      } else {
-        setPendingDownload(lastDownloadedData);
-        setIsPaywallOpen(true);
-      }
-    } else {
-      const mime = lastDownloadedData.fileName.endsWith('.docx')
-        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        : 'application/pdf';
-      downloadBlob(lastDownloadedData.data, lastDownloadedData.fileName, mime);
-    }
+    downloadBlob(lastDownloadedData.data, lastDownloadedData.fileName);
   };
 
   const getPresetIcon = (id: string, isSelected: boolean = false) => {
@@ -352,24 +309,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
         </button>
 
         <div className="flex items-center gap-3">
-          {tool.id === 'cpns-compress' && deviceQuota && (
+          {tool.id === 'cpns-compress' && (
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold">
-              {deviceQuota.isVipUnlocked ? (
-                <span className="flex items-center gap-1 text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
-                  <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                  VIP Unlocked
-                </span>
-              ) : !deviceQuota.hasUsedFreeTrial ? (
-                <span className="flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                  <Check className="w-3.5 h-3.5" />
-                  1x Coba Gratis
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
-                  <Lock className="w-3.5 h-3.5" />
-                  Rp 3.000 / berkas
-                </span>
-              )}
+              <span className="flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                <Check className="w-3.5 h-3.5" />
+                100% Gratis Selamanya
+              </span>
             </div>
           )}
 
@@ -402,13 +347,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
             {tool.description}
           </p>
 
-          {/* Device ID */}
-          {tool.id === 'cpns-compress' && deviceQuota && (
-            <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center gap-2 text-[11px] sm:text-xs text-slate-500 font-mono">
-              <Smartphone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="truncate">
-                Sidik Jari Perangkat: <strong className="text-slate-700">{deviceQuota.deviceId}</strong>
-              </span>
+          {/* Status Gratis Resmi */}
+          {tool.id === 'cpns-compress' && (
+            <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center gap-2 text-[11px] sm:text-xs text-emerald-700 font-semibold">
+              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>100% Gratis & Tanpa Batas • Format Resmi BKN, BUMN & LPSE</span>
             </div>
           )}
         </div>
