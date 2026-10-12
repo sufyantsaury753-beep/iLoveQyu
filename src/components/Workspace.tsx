@@ -10,6 +10,11 @@ import {
   imagesToPDF,
   downloadBlob,
 } from '../lib/pdf';
+import {
+  INDONESIA_PRESETS,
+  smartCompressToTarget,
+  type CompressionResult,
+} from '../lib/compressor';
 import confetti from 'canvas-confetti';
 import {
   ArrowLeft,
@@ -25,6 +30,12 @@ import {
   Plus,
   Loader2,
   Lock,
+  Building2,
+  GraduationCap,
+  Scale,
+  Sliders,
+  Check,
+  TrendingDown,
 } from 'lucide-react';
 
 interface WorkspaceProps {
@@ -50,6 +61,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.25);
   const [watermarkFontSize, setWatermarkFontSize] = useState(45);
 
+  // CPNS / BUMN / LPSE Specific Options
+  const [selectedPresetId, setSelectedPresetId] = useState<'cpns' | 'bumn' | 'lpse' | 'custom'>('cpns');
+  const [customTargetKB, setCustomTargetKB] = useState(450);
+  const [compressProgress, setCompressProgress] = useState(0);
+  const [compressProgressText, setCompressProgressText] = useState('');
+  const [compressionResult, setCompressionResult] = useState<CompressionResult | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isImageTool = tool.id === 'images-to-pdf';
@@ -60,6 +78,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
     setErrorMessage(null);
     setLastDownloadedData(null);
+    setCompressionResult(null);
 
     const newItems: UploadedFileItem[] = [];
 
@@ -80,8 +99,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
       });
     }
 
-    if (tool.id === 'split' || tool.id === 'rotate' || tool.id === 'watermark') {
-      // These usually process 1 document at a time
+    if (
+      tool.id === 'split' ||
+      tool.id === 'rotate' ||
+      tool.id === 'watermark' ||
+      tool.id === 'cpns-compress'
+    ) {
+      // These process 1 document at a time
       setFiles([newItems[0]]);
       if (newItems[0]?.pageCount) {
         setSplitRange(`1-${newItems[0].pageCount}`);
@@ -109,6 +133,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
 
   const removeFile = (id: string) => {
     setFiles((prev) => prev.filter((f) => f.id !== id));
+    setCompressionResult(null);
   };
 
   const moveFile = (index: number, direction: 'up' | 'down') => {
@@ -132,13 +157,29 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
 
     setIsProcessing(true);
     setErrorMessage(null);
+    setCompressionResult(null);
     setStatusMessage('Memproses dokumen di browsermu...');
 
     try {
       let resultData: Uint8Array;
       let outputName = 'dokumen_iloveqyu.pdf';
 
-      if (tool.id === 'merge') {
+      if (tool.id === 'cpns-compress') {
+        const file = files[0].file;
+        const targetKB =
+          selectedPresetId === 'custom'
+            ? customTargetKB
+            : INDONESIA_PRESETS.find((p) => p.id === selectedPresetId)?.targetKB || 480;
+
+        const result = await smartCompressToTarget(file, targetKB, (prog, text) => {
+          setCompressProgress(prog);
+          setCompressProgressText(text);
+        });
+
+        setCompressionResult(result);
+        resultData = result.data;
+        outputName = `${selectedPresetId}_${files[0].name}`;
+      } else if (tool.id === 'merge') {
         resultData = await mergePDFs(files.map((f) => f.file));
         outputName = `merged_${Date.now()}.pdf`;
       } else if (tool.id === 'split' || tool.id === 'page-extractor') {
@@ -179,6 +220,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
       setErrorMessage(msg);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const getPresetIcon = (id: string) => {
+    switch (id) {
+      case 'cpns':
+        return <GraduationCap className="w-5 h-5 text-indigo-600" />;
+      case 'bumn':
+        return <Building2 className="w-5 h-5 text-violet-600" />;
+      case 'lpse':
+        return <Scale className="w-5 h-5 text-amber-600" />;
+      default:
+        return <Sliders className="w-5 h-5 text-slate-600" />;
     }
   };
 
@@ -244,7 +298,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
           Pilih file {isImageTool ? 'gambar (JPG, PNG)' : 'PDF'} atau tarik ke sini
         </h3>
         <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
-          {tool.id === 'merge' || tool.id === 'images-to-pdf'
+          {tool.id === 'cpns-compress'
+            ? 'Pilih scan KTP, Ijazah, Transkrip, atau Surat Lamaran Anda.'
+            : tool.id === 'merge' || tool.id === 'images-to-pdf'
             ? 'Dapat memilih beberapa file sekaligus untuk digabungkan.'
             : 'Pilih file dokumen untuk diproses secara instan.'}
         </p>
@@ -285,7 +341,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-800 truncate">{item.name}</p>
                     <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                      <span>{formatBytes(item.size)}</span>
+                      <span className="font-medium text-slate-700">
+                        {formatBytes(item.size)}
+                      </span>
                       {item.pageCount && !isImageTool && (
                         <>
                           <span>•</span>
@@ -321,7 +379,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
                   <button
                     onClick={() => removeFile(item.id)}
                     title="Hapus file"
-                    className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-1"
+                    className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-1 cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -338,6 +396,162 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
           <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">
             Pengaturan Tindakan
           </h4>
+
+          {/* CPNS / BUMN / LPSE Smart Presets */}
+          {tool.id === 'cpns-compress' && (
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-slate-800 mb-2">
+                  Pilih Standar Verifikasi Portal Resmi
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {INDONESIA_PRESETS.map((preset) => {
+                    const isSelected = selectedPresetId === preset.id;
+                    return (
+                      <div
+                        key={preset.id}
+                        onClick={() => setSelectedPresetId(preset.id)}
+                        className={`p-4 rounded-xl border transition-all cursor-pointer relative ${
+                          isSelected
+                            ? 'border-indigo-600 bg-indigo-50/40 ring-2 ring-indigo-600/10'
+                            : 'border-slate-200 hover:border-indigo-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center shadow-xs">
+                              {getPresetIcon(preset.id)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">{preset.label}</p>
+                              <p className="text-xs font-semibold text-indigo-600">
+                                {preset.sublabel}
+                              </p>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                        <p className="mt-2.5 text-xs text-slate-600 leading-relaxed font-normal">
+                          {preset.description}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Custom Size Input */}
+              {selectedPresetId === 'custom' && (
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Batas Maksimal Ukuran Dokumen (Kilobyte / KB):
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="50"
+                      max="10000"
+                      step="50"
+                      value={customTargetKB}
+                      onChange={(e) => setCustomTargetKB(parseInt(e.target.value, 10) || 300)}
+                      className="w-36 px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                    <span className="text-sm font-semibold text-slate-600">KB</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Real-time processing progress bar */}
+              {isProcessing && (
+                <div className="p-5 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-3">
+                  <div className="flex items-center justify-between text-xs font-semibold text-indigo-900">
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                      <span>{compressProgressText || 'Sedang memproses...'}</span>
+                    </span>
+                    <span>{compressProgress}%</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-indigo-200/60 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full transition-all duration-300"
+                      style={{ width: `${compressProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Compression Results Summary */}
+              {compressionResult && !isProcessing && (
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Hasil Optimasi Berkas
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                      <TrendingDown className="w-3.5 h-3.5" />
+                      Hemat {compressionResult.reductionPercentage}%
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="p-3 bg-white rounded-xl border border-slate-200">
+                      <p className="text-[11px] text-slate-500 font-medium">Ukuran Asli</p>
+                      <p className="text-sm font-bold text-slate-700">
+                        {formatBytes(compressionResult.originalSize)}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200">
+                      <p className="text-[11px] text-slate-500 font-medium">Ukuran Hasil</p>
+                      <p className="text-sm font-bold text-indigo-600">
+                        {formatBytes(compressionResult.compressedSize)}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 col-span-2 sm:col-span-1">
+                      <p className="text-[11px] text-slate-500 font-medium">Batas Maksimal</p>
+                      <p className="text-sm font-bold text-slate-700">
+                        &lt; {compressionResult.targetKBLimit} KB
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Verification Status */}
+                  <div
+                    className={`p-3.5 rounded-xl border flex items-start gap-3 ${
+                      compressionResult.meetsRequirement
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-amber-50 border-amber-200 text-amber-900'
+                    }`}
+                  >
+                    <CheckCircle2
+                      className={`w-5 h-5 shrink-0 mt-0.5 ${
+                        compressionResult.meetsRequirement
+                          ? 'text-emerald-600'
+                          : 'text-amber-600'
+                      }`}
+                    />
+                    <div className="text-xs">
+                      <p className="font-bold">
+                        {compressionResult.meetsRequirement
+                          ? `✅ Berkas Lolos Syarat Verifikasi Resmi Portal (${formatBytes(
+                              compressionResult.compressedSize
+                            )} < ${compressionResult.targetKBLimit} KB)`
+                          : 'Ukuran telah dioptimalkan secara maksimal namun masih mendekati batas.'}
+                      </p>
+                      <p className="mt-0.5 text-slate-600">
+                        Dokumen siap diunggah ke SSCASN BKN / Rekrutmen BUMN / LPSE.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Merge Settings */}
           {tool.id === 'merge' && (
@@ -384,7 +598,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
                     key={item.angle}
                     type="button"
                     onClick={() => setRotateAngle(item.angle)}
-                    className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all ${
+                    className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all cursor-pointer ${
                       rotateAngle === item.angle
                         ? 'bg-indigo-600 text-white shadow-xs'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -477,7 +691,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
                 onClick={() =>
                   downloadBlob(lastDownloadedData.data, lastDownloadedData.fileName)
                 }
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 underline hover:text-emerald-900"
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 underline hover:text-emerald-900 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" /> Unduh Dokumen Lagi
               </button>
@@ -490,8 +704,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
       {files.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center gap-4 justify-end pt-4">
           <button
-            onClick={() => setFiles([])}
-            className="w-full sm:w-auto px-5 py-3 rounded-2xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+            onClick={() => {
+              setFiles([]);
+              setCompressionResult(null);
+            }}
+            className="w-full sm:w-auto px-5 py-3 rounded-2xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             Reset Pilihan
           </button>
@@ -504,13 +721,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
             {isProcessing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Memproses Dokumen...</span>
+                <span>
+                  {tool.id === 'cpns-compress'
+                    ? `${compressProgressText || 'Mengoptimasi Berkas...'} (${compressProgress}%)`
+                    : 'Memproses Dokumen...'}
+                </span>
               </>
             ) : (
               <>
                 <FileText className="w-4 h-4" />
                 <span>
-                  {tool.id === 'merge'
+                  {tool.id === 'cpns-compress'
+                    ? 'Optimasi Sesuai Syarat Sekarang'
+                    : tool.id === 'merge'
                     ? 'Gabungkan PDF Sekarang'
                     : tool.id === 'split'
                     ? 'Pisahkan Halaman Sekarang'

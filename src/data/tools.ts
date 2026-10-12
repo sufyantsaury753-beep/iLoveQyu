@@ -2,13 +2,22 @@ import type { PDFTool } from '../types';
 
 export const PDF_TOOLS: PDFTool[] = [
   {
+    id: 'cpns-compress',
+    title: 'Format Berkas CPNS, BUMN & LPSE',
+    description: 'Kompres otomatis dokumen sesuai syarat ukuran resmi portal pemerintah (<500 KB, <1 MB, <2 MB) tanpa membuat teks buram.',
+    badge: 'Spesial Indonesia',
+    category: 'special',
+    icon: 'FileBadge2',
+    popular: true,
+    featured: true,
+  },
+  {
     id: 'merge',
     title: 'Merge PDF',
     description: 'Gabungkan dua atau lebih file PDF menjadi satu dokumen utuh dengan urutan yang rapi.',
     badge: 'Paling Populer',
     category: 'organize',
     icon: 'Files',
-    popular: true,
   },
   {
     id: 'split',

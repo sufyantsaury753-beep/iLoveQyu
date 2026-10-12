@@ -1,4 +1,5 @@
 export type ToolId = 
+  | 'cpns-compress'
   | 'merge' 
   | 'split' 
   | 'rotate' 
@@ -11,9 +12,10 @@ export interface PDFTool {
   title: string;
   description: string;
   badge?: string;
-  category: 'organize' | 'security' | 'convert';
+  category: 'special' | 'organize' | 'security' | 'convert';
   icon: string;
   popular?: boolean;
+  featured?: boolean;
 }
 
 export interface UploadedFileItem {

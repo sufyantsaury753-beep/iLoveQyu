@@ -8,6 +8,7 @@ import {
   Image as ImageIcon,
   Scissors,
   ArrowRight,
+  FileBadge2,
 } from 'lucide-react';
 
 interface ToolGridProps {
@@ -18,6 +19,8 @@ interface ToolGridProps {
 const getToolIcon = (iconName: string) => {
   const iconProps = { className: 'w-6 h-6' };
   switch (iconName) {
+    case 'FileBadge2':
+      return <FileBadge2 {...iconProps} />;
     case 'Files':
       return <Files {...iconProps} />;
     case 'Split':
@@ -55,7 +58,11 @@ export const ToolGrid: React.FC<ToolGridProps> = ({ tools, onSelectTool }) => {
           <div
             key={tool.id}
             onClick={() => onSelectTool(tool.id)}
-            className="group relative bg-white rounded-2xl p-6 border border-slate-200/80 hover:border-indigo-400/80 shadow-xs hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 cursor-pointer flex flex-col justify-between"
+            className={`group relative bg-white rounded-2xl p-6 border ${
+              tool.featured
+                ? 'border-indigo-300/90 ring-2 ring-indigo-500/10 shadow-sm'
+                : 'border-slate-200/80 hover:border-indigo-400/80'
+            } shadow-xs hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 cursor-pointer flex flex-col justify-between`}
           >
             <div>
               {/* Header row with Icon and Badge */}
@@ -65,7 +72,13 @@ export const ToolGrid: React.FC<ToolGridProps> = ({ tools, onSelectTool }) => {
                 </div>
 
                 {tool.badge && (
-                  <span className="inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 group-hover:bg-indigo-50 group-hover:text-indigo-700 border border-slate-200/60 transition-colors">
+                  <span
+                    className={`inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                      tool.featured
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-700 group-hover:bg-indigo-50 group-hover:text-indigo-700 border border-slate-200/60'
+                    } transition-colors`}
+                  >
                     {tool.badge}
                   </span>
                 )}

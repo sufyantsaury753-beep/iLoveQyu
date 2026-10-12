@@ -16,6 +16,7 @@ export const Hero: React.FC<HeroProps> = ({
 }) => {
   const categories = [
     { id: 'all', label: 'Semua Alat' },
+    { id: 'special', label: '🇮🇩 Khusus Indonesia' },
     { id: 'organize', label: 'Susun & Pisah' },
     { id: 'security', label: 'Watermark & Proteksi' },
     { id: 'convert', label: 'Gambar & Format' },
