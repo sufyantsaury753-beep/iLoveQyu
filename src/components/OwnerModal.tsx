@@ -74,7 +74,7 @@ export const OwnerModal: React.FC<OwnerModalProps> = ({
       setPinInput('');
       onStatusChange();
     } else {
-      setPinError('PIN salah! Coba gunakan PIN default: 753');
+      setPinError('PIN yang Anda masukkan salah.');
     }
   };
 
@@ -119,15 +119,15 @@ export const OwnerModal: React.FC<OwnerModalProps> = ({
 
         {/* Modal Header */}
         <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white text-center relative overflow-hidden">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-amber-400 to-amber-300 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/20">
-            <Crown className="w-7 h-7" />
+          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <Lock className="w-7 h-7" />
           </div>
 
           <h3 className="text-xl font-bold tracking-tight">
-            Panel Pemilik Aplikasi
+            Akses Khusus Sistem
           </h3>
           <p className="text-xs text-indigo-200 mt-0.5">
-            Khusus Pembuat: <strong>Sufyan Tsaury</strong>
+            Verifikasi Otoritas Pemilik
           </p>
         </div>
 
@@ -138,13 +138,13 @@ export const OwnerModal: React.FC<OwnerModalProps> = ({
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="text-center mb-6">
                 <p className="text-sm text-slate-600">
-                  Untuk mengaktifkan hak akses pemilik dan membuka seluruh fitur tanpa batasan biaya, masukkan PIN rahasia Anda.
+                  Masukkan PIN rahasia untuk membuka seluruh fitur tanpa batasan biaya.
                 </p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  PIN Master Pemilik:
+                  PIN Akses:
                 </label>
                 <div className="relative">
                   <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -152,24 +152,21 @@ export const OwnerModal: React.FC<OwnerModalProps> = ({
                     type="password"
                     value={pinInput}
                     onChange={(e) => setPinInput(e.target.value)}
-                    placeholder="Masukkan PIN (Default: 753)"
+                    placeholder="Masukkan PIN rahasia..."
                     className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 font-mono text-sm tracking-widest text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                   />
                 </div>
                 {pinError && (
                   <p className="mt-1.5 text-xs text-rose-600 font-medium">{pinError}</p>
                 )}
-                <p className="mt-2 text-[11px] text-slate-400">
-                  💡 PIN Bawaan: <code className="font-bold text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded">753</code> (atau <code>sufyan123</code>).
-                </p>
               </div>
 
               <button
                 type="submit"
                 className="w-full py-3.5 px-6 rounded-2xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
               >
-                <Crown className="w-4 h-4 text-amber-300" />
-                <span>Masuk Sebagai Pemilik (Sufyan Tsaury)</span>
+                <Lock className="w-4 h-4 text-white" />
+                <span>Buka Kunci Akses Pemilik</span>
               </button>
             </form>
           ) : (

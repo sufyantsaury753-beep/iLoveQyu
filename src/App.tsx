@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { ToolGrid } from './components/ToolGrid';
@@ -8,24 +8,13 @@ import { FAQSection } from './components/FAQSection';
 import { Footer } from './components/Footer';
 import { OwnerModal } from './components/OwnerModal';
 import { PDF_TOOLS } from './data/tools';
-import { isOwnerLoggedIn, isSimulatingRegularUser } from './lib/admin';
 import type { ToolId } from './types';
 
 export function App() {
   const [activeToolId, setActiveToolId] = useState<ToolId | null>(null);
 
-  // Owner Mode State
+  // Secret Owner Mode State
   const [isOwnerModalOpen, setIsOwnerModalOpen] = useState(false);
-  const [isOwner, setIsOwner] = useState(false);
-
-  const refreshOwnerStatus = () => {
-    const logged = isOwnerLoggedIn() && !isSimulatingRegularUser();
-    setIsOwner(logged);
-  };
-
-  useEffect(() => {
-    refreshOwnerStatus();
-  }, []);
 
   const activeTool = PDF_TOOLS.find((t) => t.id === activeToolId);
 
@@ -51,17 +40,16 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      {/* Owner Modal */}
+      {/* Secret Owner Modal */}
       <OwnerModal
         isOpen={isOwnerModalOpen}
         onClose={() => setIsOwnerModalOpen(false)}
-        onStatusChange={refreshOwnerStatus}
+        onStatusChange={() => {}}
       />
 
       <Navbar
         onReset={handleReset}
         onNavigate={handleNavigate}
-        isOwner={isOwner}
         onOpenOwnerModal={() => setIsOwnerModalOpen(true)}
       />
 
@@ -81,7 +69,7 @@ export function App() {
         )}
       </main>
 
-      <Footer onOpenOwnerModal={() => setIsOwnerModalOpen(true)} />
+      <Footer />
     </div>
   );
 }
