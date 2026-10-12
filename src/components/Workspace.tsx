@@ -1,0 +1,530 @@
+import React, { useState, useRef } from 'react';
+import type { PDFTool, UploadedFileItem } from '../types';
+import {
+  formatBytes,
+  getPDFPageCount,
+  mergePDFs,
+  splitPDF,
+  rotatePDF,
+  addWatermark,
+  imagesToPDF,
+  downloadBlob,
+} from '../lib/pdf';
+import confetti from 'canvas-confetti';
+import {
+  ArrowLeft,
+  UploadCloud,
+  FileText,
+  Trash2,
+  MoveUp,
+  MoveDown,
+  RotateCw,
+  Download,
+  AlertCircle,
+  CheckCircle2,
+  Plus,
+  Loader2,
+  Lock,
+} from 'lucide-react';
+
+interface WorkspaceProps {
+  tool: PDFTool;
+  onBack: () => void;
+}
+
+export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
+  const [files, setFiles] = useState<UploadedFileItem[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastDownloadedData, setLastDownloadedData] = useState<{
+    data: Uint8Array;
+    fileName: string;
+  } | null>(null);
+
+  // Tool Specific Options
+  const [splitRange, setSplitRange] = useState('1');
+  const [rotateAngle, setRotateAngle] = useState<90 | 180 | 270>(90);
+  const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
+  const [watermarkOpacity, setWatermarkOpacity] = useState(0.25);
+  const [watermarkFontSize, setWatermarkFontSize] = useState(45);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isImageTool = tool.id === 'images-to-pdf';
+  const accepts = isImageTool ? 'image/png, image/jpeg, image/jpg' : 'application/pdf';
+
+  // File Upload Handlers
+  const handleFilesSelected = async (selectedFiles: FileList | null) => {
+    if (!selectedFiles || selectedFiles.length === 0) return;
+    setErrorMessage(null);
+    setLastDownloadedData(null);
+
+    const newItems: UploadedFileItem[] = [];
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      let pageCount = 1;
+
+      if (!isImageTool && file.type === 'application/pdf') {
+        pageCount = await getPDFPageCount(file);
+      }
+
+      newItems.push({
+        id: Math.random().toString(36).substring(2, 9),
+        file,
+        name: file.name,
+        size: file.size,
+        pageCount,
+      });
+    }
+
+    if (tool.id === 'split' || tool.id === 'rotate' || tool.id === 'watermark') {
+      // These usually process 1 document at a time
+      setFiles([newItems[0]]);
+      if (newItems[0]?.pageCount) {
+        setSplitRange(`1-${newItems[0].pageCount}`);
+      }
+    } else {
+      setFiles((prev) => [...prev, ...newItems]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFilesSelected(e.dataTransfer.files);
+  };
+
+  const removeFile = (id: string) => {
+    setFiles((prev) => prev.filter((f) => f.id !== id));
+  };
+
+  const moveFile = (index: number, direction: 'up' | 'down') => {
+    setFiles((prev) => {
+      const newFiles = [...prev];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= newFiles.length) return prev;
+      const temp = newFiles[index];
+      newFiles[index] = newFiles[targetIndex];
+      newFiles[targetIndex] = temp;
+      return newFiles;
+    });
+  };
+
+  // Execution Process
+  const handleProcess = async () => {
+    if (files.length === 0) {
+      setErrorMessage('Pilih file terlebih dahulu sebelum memproses.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setErrorMessage(null);
+    setStatusMessage('Memproses dokumen di browsermu...');
+
+    try {
+      let resultData: Uint8Array;
+      let outputName = 'dokumen_iloveqyu.pdf';
+
+      if (tool.id === 'merge') {
+        resultData = await mergePDFs(files.map((f) => f.file));
+        outputName = `merged_${Date.now()}.pdf`;
+      } else if (tool.id === 'split' || tool.id === 'page-extractor') {
+        const file = files[0].file;
+        resultData = await splitPDF(file, splitRange);
+        outputName = `split_${files[0].name}`;
+      } else if (tool.id === 'rotate') {
+        const file = files[0].file;
+        resultData = await rotatePDF(file, rotateAngle);
+        outputName = `rotated_${files[0].name}`;
+      } else if (tool.id === 'watermark') {
+        const file = files[0].file;
+        resultData = await addWatermark(file, watermarkText, watermarkOpacity, watermarkFontSize);
+        outputName = `watermarked_${files[0].name}`;
+      } else if (tool.id === 'images-to-pdf') {
+        resultData = await imagesToPDF(files.map((f) => f.file));
+        outputName = `images_${Date.now()}.pdf`;
+      } else {
+        throw new Error('Fitur belum diimplementasikan');
+      }
+
+      // Download automatically
+      downloadBlob(resultData, outputName);
+      setLastDownloadedData({ data: resultData, fileName: outputName });
+
+      // Celebration Confetti
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { y: 0.65 },
+        colors: ['#6366F1', '#8B5CF6', '#EC4899', '#10B981'],
+      });
+
+      setStatusMessage('Selesai! Dokumen berhasil diproses dan otomatis terunduh.');
+    } catch (err: unknown) {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses PDF.';
+      setErrorMessage(msg);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      {/* Back Button & Tool Header */}
+      <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-200/80">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span>Kembali ke Semua Alat</span>
+        </button>
+
+        <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+          <Lock className="w-3.5 h-3.5 text-indigo-500" />
+          <span>Memori Lokal • Zero Cloud Storage</span>
+        </div>
+      </div>
+
+      {/* Active Tool Intro Card */}
+      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-xs mb-8">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              {tool.title}
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">{tool.description}</p>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+            {tool.badge || 'Client-Side'}
+          </span>
+        </div>
+      </div>
+
+      {/* Drag & Drop Area */}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+        className={`relative border-2 border-dashed rounded-3xl p-8 sm:p-12 text-center transition-all cursor-pointer ${
+          isDragging
+            ? 'border-indigo-600 bg-indigo-50/50 scale-[1.01]'
+            : 'border-slate-300 hover:border-indigo-500 bg-white hover:bg-slate-50/50'
+        } shadow-xs mb-8`}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={accepts}
+          multiple={tool.id === 'merge' || tool.id === 'images-to-pdf'}
+          className="hidden"
+          onChange={(e) => handleFilesSelected(e.target.files)}
+        />
+
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
+          <UploadCloud className="w-8 h-8" />
+        </div>
+
+        <h3 className="text-lg font-bold text-slate-900">
+          Pilih file {isImageTool ? 'gambar (JPG, PNG)' : 'PDF'} atau tarik ke sini
+        </h3>
+        <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
+          {tool.id === 'merge' || tool.id === 'images-to-pdf'
+            ? 'Dapat memilih beberapa file sekaligus untuk digabungkan.'
+            : 'Pilih file dokumen untuk diproses secara instan.'}
+        </p>
+
+        <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors">
+          <Plus className="w-3.5 h-3.5" />
+          <span>Jelajahi Berkas</span>
+        </div>
+      </div>
+
+      {/* Selected Files List */}
+      {files.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs mb-8">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+            <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+              File Dipilih ({files.length})
+            </h4>
+            {(tool.id === 'merge' || tool.id === 'images-to-pdf') && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Tambah File Lain
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {files.map((item, idx) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200/60 hover:border-slate-300 transition-colors"
+              >
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{item.name}</p>
+                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                      <span>{formatBytes(item.size)}</span>
+                      {item.pageCount && !isImageTool && (
+                        <>
+                          <span>•</span>
+                          <span>{item.pageCount} Halaman</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0 ml-4">
+                  {tool.id === 'merge' && files.length > 1 && (
+                    <>
+                      <button
+                        disabled={idx === 0}
+                        onClick={() => moveFile(idx, 'up')}
+                        title="Geser ke atas"
+                        className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                      >
+                        <MoveUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        disabled={idx === files.length - 1}
+                        onClick={() => moveFile(idx, 'down')}
+                        title="Geser ke bawah"
+                        className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                      >
+                        <MoveDown className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    onClick={() => removeFile(item.id)}
+                    title="Hapus file"
+                    className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-1"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tool-specific Settings Panel */}
+      {files.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs mb-8">
+          <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">
+            Pengaturan Tindakan
+          </h4>
+
+          {/* Merge Settings */}
+          {tool.id === 'merge' && (
+            <p className="text-sm text-slate-600">
+              Dokumen akan digabungkan dari atas ke bawah sesuai urutan daftar di atas. Kamu dapat
+              menggunakan tombol panah untuk mengubah posisinya.
+            </p>
+          )}
+
+          {/* Split / Page Extractor Settings */}
+          {(tool.id === 'split' || tool.id === 'page-extractor') && (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-slate-700">
+                Rentang Halaman yang Ingin Diambil
+              </label>
+              <input
+                type="text"
+                value={splitRange}
+                onChange={(e) => setSplitRange(e.target.value)}
+                placeholder="Contoh: 1-3, 5, 8"
+                className="w-full sm:w-80 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-sm"
+              />
+              <p className="text-xs text-slate-500">
+                Gunakan tanda hubung untuk rentang (misal: <code>1-3</code>) dan koma untuk halaman
+                terpisah (misal: <code>1-3, 5</code>). Total halaman file ini:{' '}
+                <strong>{files[0]?.pageCount || 1}</strong>.
+              </p>
+            </div>
+          )}
+
+          {/* Rotate Settings */}
+          {tool.id === 'rotate' && (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-slate-700">
+                Arah Sudut Putaran
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {[
+                  { angle: 90 as const, label: 'Putar 90° (Searah Jarum Jam)' },
+                  { angle: 180 as const, label: 'Putar 180° (Balik)' },
+                  { angle: 270 as const, label: 'Putar 270° (Berlawanan)' },
+                ].map((item) => (
+                  <button
+                    key={item.angle}
+                    type="button"
+                    onClick={() => setRotateAngle(item.angle)}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all ${
+                      rotateAngle === item.angle
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <RotateCw className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Watermark Settings */}
+          {tool.id === 'watermark' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Teks Watermark / Stempel
+                </label>
+                <input
+                  type="text"
+                  value={watermarkText}
+                  onChange={(e) => setWatermarkText(e.target.value)}
+                  placeholder="Contoh: CONFIDENTIAL, RAHASIA, DRAFT"
+                  className="w-full sm:w-96 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Tingkat Transparansi ({Math.round(watermarkOpacity * 100)}%)
+                  </label>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="0.8"
+                    step="0.05"
+                    value={watermarkOpacity}
+                    onChange={(e) => setWatermarkOpacity(parseFloat(e.target.value))}
+                    className="w-full accent-indigo-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Ukuran Font ({watermarkFontSize}px)
+                  </label>
+                  <input
+                    type="range"
+                    min="24"
+                    max="72"
+                    step="2"
+                    value={watermarkFontSize}
+                    onChange={(e) => setWatermarkFontSize(parseInt(e.target.value, 10))}
+                    className="w-full accent-indigo-600"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Images to PDF Settings */}
+          {tool.id === 'images-to-pdf' && (
+            <p className="text-sm text-slate-600">
+              Setiap gambar akan dijadikan satu halaman penuh PDF dengan resolusi asli gambar.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Notifications / Error Feedback */}
+      {errorMessage && (
+        <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-500" />
+          <div>
+            <p className="font-semibold">Gagal Memproses Dokumen</p>
+            <p className="text-xs mt-0.5">{errorMessage}</p>
+          </div>
+        </div>
+      )}
+
+      {statusMessage && !errorMessage && (
+        <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-start gap-3">
+          <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-500" />
+          <div className="flex-1">
+            <p className="font-semibold">{statusMessage}</p>
+            {lastDownloadedData && (
+              <button
+                onClick={() =>
+                  downloadBlob(lastDownloadedData.data, lastDownloadedData.fileName)
+                }
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 underline hover:text-emerald-900"
+              >
+                <Download className="w-3.5 h-3.5" /> Unduh Dokumen Lagi
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Process CTA Button */}
+      {files.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center gap-4 justify-end pt-4">
+          <button
+            onClick={() => setFiles([])}
+            className="w-full sm:w-auto px-5 py-3 rounded-2xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            Reset Pilihan
+          </button>
+
+          <button
+            onClick={handleProcess}
+            disabled={isProcessing}
+            className="w-full sm:w-auto px-8 py-3.5 rounded-2xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/30 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer transition-all transform active:scale-98"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Memproses Dokumen...</span>
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4" />
+                <span>
+                  {tool.id === 'merge'
+                    ? 'Gabungkan PDF Sekarang'
+                    : tool.id === 'split'
+                    ? 'Pisahkan Halaman Sekarang'
+                    : tool.id === 'rotate'
+                    ? 'Putar Halaman Sekarang'
+                    : tool.id === 'watermark'
+                    ? 'Pasang Watermark Sekarang'
+                    : 'Konversi ke PDF Sekarang'}
+                </span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};

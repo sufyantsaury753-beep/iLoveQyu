@@ -1,0 +1,51 @@
+import type { PDFTool } from '../types';
+
+export const PDF_TOOLS: PDFTool[] = [
+  {
+    id: 'merge',
+    title: 'Merge PDF',
+    description: 'Gabungkan dua atau lebih file PDF menjadi satu dokumen utuh dengan urutan yang rapi.',
+    badge: 'Paling Populer',
+    category: 'organize',
+    icon: 'Files',
+    popular: true,
+  },
+  {
+    id: 'split',
+    title: 'Split PDF',
+    description: 'Pisahkan atau ekstrak halaman spesifik (misalnya halaman 1-5, atau 7) ke dokumen baru.',
+    badge: 'Instan',
+    category: 'organize',
+    icon: 'Split',
+  },
+  {
+    id: 'rotate',
+    title: 'Rotate PDF',
+    description: 'Putar orientasi halaman dokumen 90°, 180°, atau 270° agar sesuai arah baca.',
+    category: 'organize',
+    icon: 'RotateCw',
+  },
+  {
+    id: 'watermark',
+    title: 'Watermark PDF',
+    description: 'Beri cap tanda stempel teks (contoh: RAHASIA, DRAFT, COPY) dengan opasitas halus.',
+    badge: 'Keamanan',
+    category: 'security',
+    icon: 'Stamp',
+  },
+  {
+    id: 'images-to-pdf',
+    title: 'JPG / PNG ke PDF',
+    description: 'Konversi koleksi gambar foto atau scan menjadi satu file dokumen PDF berkualitas.',
+    badge: 'Konversi',
+    category: 'convert',
+    icon: 'Image',
+  },
+  {
+    id: 'page-extractor',
+    title: 'Ekstrak & Hapus Halaman',
+    description: 'Pilih hanya halaman yang kamu inginkan dan singkirkan halaman yang tidak terpakai.',
+    category: 'organize',
+    icon: 'Scissors',
+  },
+];
