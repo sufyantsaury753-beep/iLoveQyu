@@ -79,6 +79,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
 
   // CPNS / BUMN / LPSE Specific Options
   const [selectedPresetId, setSelectedPresetId] = useState<'cpns' | 'bumn' | 'lpse' | 'custom'>('cpns');
+  const selectedPreset = INDONESIA_PRESETS.find((p) => p.id === selectedPresetId) || INDONESIA_PRESETS[0];
   const [customTargetKB, setCustomTargetKB] = useState(450);
   const [compressProgress, setCompressProgress] = useState(0);
   const [compressProgressText, setCompressProgressText] = useState('');
@@ -316,16 +317,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
     }
   };
 
-  const getPresetIcon = (id: string) => {
+  const getPresetIcon = (id: string, isSelected: boolean = false) => {
+    const iconClass = isSelected ? 'w-6 h-6 text-white' : 'w-5 h-5 text-indigo-600';
     switch (id) {
       case 'cpns':
-        return <GraduationCap className="w-5 h-5 text-indigo-600" />;
+        return <GraduationCap className={iconClass} />;
       case 'bumn':
-        return <Building2 className="w-5 h-5 text-violet-600" />;
+        return <Building2 className={isSelected ? 'w-6 h-6 text-white' : 'w-5 h-5 text-violet-600'} />;
       case 'lpse':
-        return <Scale className="w-5 h-5 text-amber-600" />;
+        return <Scale className={isSelected ? 'w-6 h-6 text-white' : 'w-5 h-5 text-amber-600'} />;
       default:
-        return <Sliders className="w-5 h-5 text-slate-600" />;
+        return <Sliders className={isSelected ? 'w-6 h-6 text-white' : 'w-5 h-5 text-slate-600'} />;
     }
   };
 
@@ -379,26 +381,36 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
       </div>
 
       {/* Active Tool Intro Card */}
-      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-xs mb-8">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                {tool.title}
-              </h2>
+      <div className="bg-white rounded-2xl p-5 sm:p-8 border border-slate-200/80 shadow-xs mb-6 sm:mb-8">
+        <div>
+          {/* Badge & Category Header */}
+          {tool.badge && (
+            <div className="mb-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/70 whitespace-nowrap shadow-2xs">
+                {tool.badge}
+              </span>
             </div>
-            <p className="text-sm text-slate-600">{tool.description}</p>
+          )}
 
-            {tool.id === 'cpns-compress' && deviceQuota && (
-              <div className="mt-3 flex items-center gap-2 text-xs text-slate-500 font-mono">
-                <Smartphone className="w-3.5 h-3.5 text-slate-400" />
-                <span>Sidik Jari Perangkat: <strong>{deviceQuota.deviceId}</strong></span>
-              </div>
-            )}
-          </div>
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-            {tool.badge || 'Client-Side'}
-          </span>
+          {/* Title */}
+          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-snug mb-2">
+            {tool.title}
+          </h2>
+
+          {/* Description */}
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-2xl">
+            {tool.description}
+          </p>
+
+          {/* Device ID */}
+          {tool.id === 'cpns-compress' && deviceQuota && (
+            <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center gap-2 text-[11px] sm:text-xs text-slate-500 font-mono">
+              <Smartphone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="truncate">
+                Sidik Jari Perangkat: <strong className="text-slate-700">{deviceQuota.deviceId}</strong>
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -534,10 +546,87 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
           {tool.id === 'cpns-compress' && (
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-2">
+                <label className="block text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide mb-3">
                   Pilih Standar Verifikasi Portal Resmi
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+
+                {/* Mobile View: Circular Icon Buttons (Native Mobile App Aesthetic) */}
+                <div className="sm:hidden mb-2">
+                  <div className="grid grid-cols-4 gap-2">
+                    {INDONESIA_PRESETS.map((preset) => {
+                      const isSelected = selectedPresetId === preset.id;
+                      const shortNames: Record<string, string> = {
+                        cpns: 'BKN/CPNS',
+                        bumn: 'BUMN',
+                        lpse: 'LPSE',
+                        custom: 'Kustom',
+                      };
+                      const shortSizes: Record<string, string> = {
+                        cpns: '500 KB',
+                        bumn: '1 MB',
+                        lpse: '2 MB',
+                        custom: 'Bebas',
+                      };
+
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => setSelectedPresetId(preset.id)}
+                          className="flex flex-col items-center group cursor-pointer focus:outline-none"
+                        >
+                          {/* Circular Button */}
+                          <div
+                            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90 relative ${
+                              isSelected
+                                ? 'bg-gradient-to-tr from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/30 ring-4 ring-indigo-100 scale-105'
+                                : 'bg-gradient-to-tr from-slate-50 to-indigo-50/50 text-indigo-600 border border-slate-200/90 hover:border-indigo-300'
+                            }`}
+                          >
+                            {getPresetIcon(preset.id, isSelected)}
+                            {isSelected && (
+                              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white text-indigo-600 flex items-center justify-center shadow-xs border border-indigo-200">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Label Underneath */}
+                          <span
+                            className={`mt-2 text-[11px] font-bold text-center leading-tight truncate w-full px-0.5 ${
+                              isSelected ? 'text-indigo-600 font-extrabold' : 'text-slate-800'
+                            }`}
+                          >
+                            {shortNames[preset.id] || preset.label}
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-500 text-center leading-tight mt-0.5">
+                            {shortSizes[preset.id] || preset.sublabel}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Active Preset Detail Info Card on Mobile */}
+                  {selectedPreset && (
+                    <div className="mt-4 p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-100/90 text-xs animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="font-bold text-indigo-950 text-xs truncate">
+                          {selectedPreset.label}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600 text-white shrink-0">
+                          {selectedPreset.sublabel}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 text-[11px] leading-relaxed">
+                        {selectedPreset.description}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Tablet & Desktop View: Modern Card Grid */}
+                <div className="hidden sm:grid grid-cols-2 gap-3.5">
                   {INDONESIA_PRESETS.map((preset) => {
                     const isSelected = selectedPresetId === preset.id;
                     return (
@@ -553,7 +642,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center shadow-xs">
-                              {getPresetIcon(preset.id)}
+                              {getPresetIcon(preset.id, false)}
                             </div>
                             <div>
                               <p className="text-sm font-bold text-slate-900">{preset.label}</p>
