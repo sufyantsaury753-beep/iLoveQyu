@@ -2,6 +2,12 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { Document, Paragraph, TextRun, HeadingLevel, Packer } from 'docx';
 import mammoth from 'mammoth';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas-pro';
+
+// Register html2canvas-pro globally for jsPDF (supports oklch, lab, modern css)
+if (typeof window !== 'undefined') {
+  (window as unknown as { html2canvas: typeof html2canvas }).html2canvas = html2canvas;
+}
 
 // Configure PDF.js worker
 if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
@@ -182,31 +188,35 @@ export async function convertWordToPdf(file: File): Promise<Uint8Array> {
   // 2. Prepare container with standard document styling
   const container = document.createElement('div');
   container.id = 'word-to-pdf-temp-container';
-  container.style.position = 'absolute';
-  container.style.left = '-9999px';
+  container.style.position = 'fixed';
+  container.style.left = '0';
   container.style.top = '0';
-  container.style.width = '700px';
+  container.style.width = '720px';
+  container.style.zIndex = '-9999';
+  container.style.opacity = '0';
+  container.style.pointerEvents = 'none';
   container.style.backgroundColor = '#ffffff';
-  container.style.color = '#1e293b';
-  container.style.fontFamily = 'Arial, Helvetica, sans-serif';
+  container.style.color = '#111827';
+  container.style.fontFamily = "'Segoe UI', Arial, Helvetica, sans-serif";
   container.style.fontSize = '14px';
-  container.style.lineHeight = '1.6';
-  container.style.padding = '40px';
+  container.style.lineHeight = '1.65';
+  container.style.padding = '36px 40px';
   container.style.boxSizing = 'border-box';
 
-  // Inject beautiful document typography styles
+  // Inject standard hex/rgb document typography styles
   container.innerHTML = `
     <style>
-      #word-to-pdf-temp-container h1 { font-size: 24px; font-weight: bold; margin-bottom: 16px; margin-top: 24px; color: #0f172a; }
-      #word-to-pdf-temp-container h2 { font-size: 20px; font-weight: bold; margin-bottom: 14px; margin-top: 20px; color: #1e293b; }
-      #word-to-pdf-temp-container h3 { font-size: 16px; font-weight: bold; margin-bottom: 12px; margin-top: 16px; color: #334155; }
-      #word-to-pdf-temp-container p { margin-bottom: 12px; }
-      #word-to-pdf-temp-container ul, #word-to-pdf-temp-container ol { margin-left: 24px; margin-bottom: 12px; }
-      #word-to-pdf-temp-container li { margin-bottom: 6px; }
-      #word-to-pdf-temp-container table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
-      #word-to-pdf-temp-container th, #word-to-pdf-temp-container td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
-      #word-to-pdf-temp-container th { background-color: #f1f5f9; font-weight: 600; }
-      #word-to-pdf-temp-container img { max-width: 100%; height: auto; margin: 12px 0; }
+      #word-to-pdf-temp-container { background-color: #ffffff !important; color: #111827 !important; }
+      #word-to-pdf-temp-container h1 { font-size: 22px; font-weight: bold; margin-bottom: 14px; margin-top: 20px; color: #0f172a; line-height: 1.3; }
+      #word-to-pdf-temp-container h2 { font-size: 18px; font-weight: bold; margin-bottom: 12px; margin-top: 18px; color: #1e293b; line-height: 1.35; }
+      #word-to-pdf-temp-container h3 { font-size: 15px; font-weight: bold; margin-bottom: 10px; margin-top: 14px; color: #334155; line-height: 1.4; }
+      #word-to-pdf-temp-container p { margin-top: 0; margin-bottom: 12px; text-align: justify; text-justify: inter-word; color: #111827; }
+      #word-to-pdf-temp-container ul, #word-to-pdf-temp-container ol { margin-left: 24px; margin-bottom: 12px; color: #111827; }
+      #word-to-pdf-temp-container li { margin-bottom: 4px; }
+      #word-to-pdf-temp-container table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12.5px; page-break-inside: avoid; }
+      #word-to-pdf-temp-container th, #word-to-pdf-temp-container td { border: 1px solid #cbd5e1; padding: 7px 10px; text-align: left; }
+      #word-to-pdf-temp-container th { background-color: #f1f5f9; font-weight: 600; color: #0f172a; }
+      #word-to-pdf-temp-container img { max-width: 100%; height: auto; margin: 12px 0; page-break-inside: avoid; }
       #word-to-pdf-temp-container blockquote { border-left: 4px solid #6366f1; padding-left: 12px; margin: 12px 0; color: #475569; font-style: italic; }
     </style>
     <div>${htmlContent}</div>
@@ -223,10 +233,15 @@ export async function convertWordToPdf(file: File): Promise<Uint8Array> {
 
     await doc.html(container, {
       callback: () => {},
-      margin: [40, 40, 40, 40],
+      margin: [36, 36, 36, 36],
       autoPaging: 'text',
-      width: 515, // A4 width 595.28 - 80pt margins
-      windowWidth: 700,
+      width: 523, // A4 width 595.28 - 72pt margins
+      windowWidth: 720,
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      },
     });
 
     const pdfOutput = doc.output('arraybuffer');

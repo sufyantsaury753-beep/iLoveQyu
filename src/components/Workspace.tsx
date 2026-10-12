@@ -122,7 +122,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
         file,
         name: file.name,
         size: file.size,
-        pageCount,
+        pageCount: isWordInputTool ? undefined : pageCount,
       });
     }
 
@@ -504,12 +504,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
                       <span className="font-medium text-slate-700">
                         {formatBytes(item.size)}
                       </span>
-                      {item.pageCount && !isImageTool && (
+                      {isWordInputTool || item.name.endsWith('.docx') || item.name.endsWith('.doc') ? (
+                        <>
+                          <span>•</span>
+                          <span className="text-indigo-600 font-medium">Dokumen Word (.docx)</span>
+                        </>
+                      ) : item.pageCount && !isImageTool ? (
                         <>
                           <span>•</span>
                           <span>{item.pageCount} Halaman</span>
                         </>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>
