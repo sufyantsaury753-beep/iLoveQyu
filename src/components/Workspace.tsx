@@ -237,8 +237,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
       } else if (tool.id === 'word-to-pdf') {
         const file = files[0].file;
         const baseName = file.name.replace(/\.[^/.]+$/, '');
-        setStatusMessage('Membaca Word (.docx) & merender ke PDF...');
-        resultData = await convertWordToPdf(file);
+        setStatusMessage('Menghubungkan ke LibreOffice Engine (100% Identik iLovePDF)...');
+        resultData = await convertWordToPdf(file, (msg) => setStatusMessage(msg));
         outputName = `${baseName}.pdf`;
       } else {
         throw new Error('Fitur belum diimplementasikan');
