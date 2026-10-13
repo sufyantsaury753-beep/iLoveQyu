@@ -12,6 +12,16 @@ export const PDF_TOOLS: PDFTool[] = [
     featured: true,
   },
   {
+    id: 'sign',
+    title: 'Tanda Tangan PDF (e-Sign)',
+    description: 'Bubuhkan tanda tangan basah digital pada surat lamaran, berkas CPNS, atau formulir tanpa perlu cetak dan scan.',
+    badge: 'Paling Dicari',
+    category: 'special',
+    icon: 'PenTool',
+    popular: true,
+    featured: true,
+  },
+  {
     id: 'merge',
     title: 'Merge PDF',
     description: 'Gabungkan dua atau lebih file PDF menjadi satu dokumen utuh dengan urutan yang rapi.',

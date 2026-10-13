@@ -1,5 +1,6 @@
 export type ToolId = 
   | 'cpns-compress'
+  | 'sign'
   | 'merge' 
   | 'split' 
   | 'rotate' 

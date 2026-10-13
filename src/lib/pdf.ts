@@ -198,3 +198,52 @@ function parsePageRanges(rangeText: string, totalPages: number): number[] {
 
   return Array.from(indices).sort((a, b) => a - b);
 }
+
+export interface SignaturePlacement {
+  pageIndex: number; // 0-based
+  xRatio: number; // 0 to 1 relative to page width (from left)
+  yRatio: number; // 0 to 1 relative to page height (from top)
+  widthRatio: number; // 0 to 1 relative to page width
+  heightRatio: number; // 0 to 1 relative to page height
+}
+
+/**
+ * Embed a signature PNG onto a specific page of a PDF file
+ */
+export async function signPDF(
+  file: File,
+  signaturePngDataUrl: string,
+  placement: SignaturePlacement
+): Promise<Uint8Array> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(arrayBuffer);
+
+  // Extract PNG binary from Data URL
+  const base64Data = signaturePngDataUrl.split(',')[1];
+  const binaryString = atob(base64Data);
+  const pngBytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    pngBytes[i] = binaryString.charCodeAt(i);
+  }
+
+  const embeddedImage = await pdfDoc.embedPng(pngBytes);
+  const pages = pdfDoc.getPages();
+  const pageIndex = Math.min(Math.max(0, placement.pageIndex), pages.length - 1);
+  const targetPage = pages[pageIndex];
+
+  const { width: pageWidth, height: pageHeight } = targetPage.getSize();
+  const drawWidth = pageWidth * placement.widthRatio;
+  const drawHeight = pageHeight * placement.heightRatio;
+  const drawX = pageWidth * placement.xRatio;
+  // In pdf-lib, y=0 is at bottom-left corner
+  const drawY = pageHeight - (pageHeight * placement.yRatio) - drawHeight;
+
+  targetPage.drawImage(embeddedImage, {
+    x: Math.max(0, drawX),
+    y: Math.max(0, drawY),
+    width: drawWidth,
+    height: drawHeight,
+  });
+
+  return await pdfDoc.save();
+}

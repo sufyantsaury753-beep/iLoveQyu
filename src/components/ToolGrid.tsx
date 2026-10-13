@@ -11,6 +11,7 @@ import {
   FileBadge2,
   FileText,
   FileType,
+  PenTool,
 } from 'lucide-react';
 
 interface ToolGridProps {
@@ -21,6 +22,8 @@ interface ToolGridProps {
 const getToolIcon = (iconName: string, isMobile = false) => {
   const iconProps = { className: isMobile ? 'w-6 h-6' : 'w-6 h-6' };
   switch (iconName) {
+    case 'PenTool':
+      return <PenTool {...iconProps} />;
     case 'FileBadge2':
       return <FileBadge2 {...iconProps} />;
     case 'FileText':
