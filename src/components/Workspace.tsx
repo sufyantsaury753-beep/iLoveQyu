@@ -9,6 +9,9 @@ import {
   addWatermark,
   imagesToPDF,
   downloadBlob,
+  addPageNumbers,
+  type PageNumberPosition,
+  type PageNumberFormat,
 } from '../lib/pdf';
 import {
   INDONESIA_PRESETS,
@@ -42,6 +45,7 @@ import {
   Sliders,
   Check,
   TrendingDown,
+  Hash,
 } from 'lucide-react';
 
 interface WorkspaceProps {
@@ -74,6 +78,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
   const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.25);
   const [watermarkFontSize, setWatermarkFontSize] = useState(45);
+
+  // Page Numbering Specific Options
+  const [pageNumberPosition, setPageNumberPosition] = useState<PageNumberPosition>('bottom-right');
+  const [pageNumberFormat, setPageNumberFormat] = useState<PageNumberFormat>('number');
+  const [skipFirstPageCover, setSkipFirstPageCover] = useState(false);
+  const [pageNumberStart, setPageNumberStart] = useState(1);
+  const [pageNumberFontSize, setPageNumberFontSize] = useState(11);
 
   // CPNS / BUMN / LPSE Specific Options
   const [selectedPresetId, setSelectedPresetId] = useState<'cpns' | 'bumn' | 'lpse' | 'custom'>('cpns');
@@ -217,6 +228,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
         const file = files[0].file;
         resultData = await addWatermark(file, watermarkText, watermarkOpacity, watermarkFontSize);
         outputName = `watermarked_${files[0].name}`;
+      } else if (tool.id === 'page-number') {
+        const file = files[0].file;
+        resultData = await addPageNumbers(file, {
+          position: pageNumberPosition,
+          format: pageNumberFormat,
+          skipFirstPage: skipFirstPageCover,
+          startNumber: pageNumberStart,
+          fontSize: pageNumberFontSize,
+        });
+        outputName = `bernomor_${files[0].name}`;
       } else if (tool.id === 'images-to-pdf') {
         resultData = await imagesToPDF(files.map((f) => f.file));
         outputName = `images_${Date.now()}.pdf`;
@@ -238,6 +259,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
       setStatusMessage(
         tool.id === 'cpns-compress'
           ? 'Selesai! Berkas berhasil dioptimasi sesuai standar resmi dan otomatis terunduh.'
+          : tool.id === 'page-number'
+          ? 'Selesai! Nomor halaman berhasil dibubuhkan dan dokumen otomatis terunduh.'
           : 'Selesai! Dokumen berhasil diproses dan otomatis terunduh.'
       );
     } catch (err: unknown) {
@@ -403,6 +426,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
                 ? 'Pilih scan KTP, Ijazah, Transkrip, atau Surat Lamaran Anda.'
                 : tool.id === 'sign'
                 ? 'Pilih surat lamaran, surat pernyataan, atau formulir PDF yang ingin Anda tanda tangani.'
+                : tool.id === 'page-number'
+                ? 'Pilih berkas PDF skripsi, makalah, atau laporan yang ingin diberi nomor halaman.'
                 : tool.id === 'merge' || tool.id === 'images-to-pdf'
                 ? 'Dapat memilih beberapa file sekaligus untuk digabungkan.'
                 : 'Pilih file dokumen untuk diproses secara instan.'}
@@ -841,6 +866,128 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
             </div>
           )}
 
+          {/* Page Number Settings */}
+          {tool.id === 'page-number' && (
+            <div className="space-y-6">
+              {/* Position Grid */}
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
+                  <Hash className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Posisi Nomor Halaman pada Lembar Kertas</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2.5 max-w-md">
+                  {[
+                    { id: 'top-left' as const, label: 'Atas Kiri' },
+                    { id: 'top-center' as const, label: 'Atas Tengah' },
+                    { id: 'top-right' as const, label: 'Atas Kanan (Skripsi)' },
+                    { id: 'bottom-left' as const, label: 'Bawah Kiri' },
+                    { id: 'bottom-center' as const, label: 'Bawah Tengah (Bab I)' },
+                    { id: 'bottom-right' as const, label: 'Bawah Kanan (Standar)' },
+                  ].map((pos) => (
+                    <button
+                      key={pos.id}
+                      type="button"
+                      onClick={() => setPageNumberPosition(pos.id)}
+                      className={`py-3 px-2 rounded-xl text-xs font-semibold border flex flex-col items-center justify-center transition-all cursor-pointer ${
+                        pageNumberPosition === pos.id
+                          ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-2xs font-bold ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="truncate">{pos.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Format Penomoran */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
+                  Gaya & Format Penomoran
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {[
+                    { id: 'number' as const, label: '1, 2, 3...', sub: 'Angka Biasa' },
+                    { id: 'page-of' as const, label: 'Halaman 1 dari N', sub: 'Format Resmi' },
+                    { id: 'page-slash' as const, label: 'Halaman 1/N', sub: 'Format Ringkas' },
+                    { id: 'dash' as const, label: '- 1 -', sub: 'Tanda Strip' },
+                    { id: 'roman' as const, label: 'i, ii, iii...', sub: 'Romawi Kecil' },
+                  ].map((fmt) => (
+                    <button
+                      key={fmt.id}
+                      type="button"
+                      onClick={() => setPageNumberFormat(fmt.id)}
+                      className={`p-3 rounded-xl text-left border transition-all cursor-pointer ${
+                        pageNumberFormat === fmt.id
+                          ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/15'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <p className={`text-xs font-bold ${pageNumberFormat === fmt.id ? 'text-indigo-900' : 'text-slate-800'}`}>
+                        {fmt.label}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-medium mt-0.5">{fmt.sub}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Cover / First Page Skip & Start Number */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={skipFirstPageCover}
+                    onChange={(e) => setSkipFirstPageCover(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-slate-800">
+                    Lewati Halaman Pertama (Sampul / Cover Dokumen)
+                  </span>
+                </label>
+                <p className="text-[11px] text-slate-500 pl-6.5 leading-relaxed">
+                  Aktifkan ini jika dokumen memiliki lembar sampul / cover agar halaman pertama tetap bersih tanpa nomor (standar penulisan karya ilmiah & skripsi).
+                </p>
+
+                <div className="pt-2 border-t border-slate-200/70 flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-700">Mulai Hitungan Dari:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="9999"
+                      value={pageNumberStart}
+                      onChange={(e) => setPageNumberStart(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-800 text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-700">Ukuran Font:</span>
+                    {[
+                      { size: 9, label: 'Kecil (9pt)' },
+                      { size: 11, label: 'Standar (11pt)' },
+                      { size: 13, label: 'Besar (13pt)' },
+                    ].map((s) => (
+                      <button
+                        key={s.size}
+                        type="button"
+                        onClick={() => setPageNumberFontSize(s.size)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${
+                          pageNumberFontSize === s.size
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Images to PDF Settings */}
           {tool.id === 'images-to-pdf' && (
             <p className="text-sm text-slate-600">
@@ -919,6 +1066,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ tool, onBack }) => {
                     ? 'Putar Halaman Sekarang'
                     : tool.id === 'watermark'
                     ? 'Pasang Watermark Sekarang'
+                    : tool.id === 'page-number'
+                    ? 'Beri Nomor Halaman Sekarang'
                     : 'Konversi ke PDF Sekarang'}
                 </span>
               </>

@@ -247,3 +247,115 @@ export async function signPDF(
 
   return await pdfDoc.save();
 }
+
+export type PageNumberPosition =
+  | 'bottom-right'
+  | 'bottom-center'
+  | 'bottom-left'
+  | 'top-right'
+  | 'top-center'
+  | 'top-left';
+
+export type PageNumberFormat =
+  | 'number'
+  | 'page-of'
+  | 'page-slash'
+  | 'dash'
+  | 'roman';
+
+export interface PageNumberOptions {
+  position?: PageNumberPosition;
+  format?: PageNumberFormat;
+  skipFirstPage?: boolean;
+  startNumber?: number;
+  fontSize?: number;
+  margin?: number;
+}
+
+function toRoman(num: number): string {
+  if (num <= 0) return `${num}`;
+  const val = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+  const syms = ['m', 'cm', 'd', 'cd', 'c', 'xc', 'l', 'xl', 'x', 'ix', 'v', 'iv', 'i'];
+  let roman = '';
+  let n = num;
+  for (let i = 0; i < val.length; i++) {
+    while (n >= val[i]) {
+      roman += syms[i];
+      n -= val[i];
+    }
+  }
+  return roman;
+}
+
+/**
+ * Add automatic page numbering across PDF pages
+ */
+export async function addPageNumbers(
+  file: File,
+  options: PageNumberOptions = {}
+): Promise<Uint8Array> {
+  const {
+    position = 'bottom-right',
+    format = 'number',
+    skipFirstPage = false,
+    startNumber = 1,
+    fontSize = 11,
+    margin = 32,
+  } = options;
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(arrayBuffer);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const pages = pdfDoc.getPages();
+  const totalPages = pages.length;
+
+  for (let i = 0; i < totalPages; i++) {
+    // If skipping first page (e.g. Cover page)
+    if (skipFirstPage && i === 0) continue;
+
+    const page = pages[i];
+    const { width, height } = page.getSize();
+
+    // Calculate current number
+    const currentNum = startNumber + (skipFirstPage ? i - 1 : i);
+
+    let text = `${currentNum}`;
+    if (format === 'page-of') {
+      text = `Halaman ${currentNum} dari ${totalPages}`;
+    } else if (format === 'page-slash') {
+      text = `Halaman ${currentNum}/${totalPages}`;
+    } else if (format === 'dash') {
+      text = `- ${currentNum} -`;
+    } else if (format === 'roman') {
+      text = toRoman(currentNum);
+    }
+
+    const textWidth = font.widthOfTextAtSize(text, fontSize);
+    const textHeight = font.heightAtSize(fontSize);
+
+    // Calculate X coordinate
+    let x = width - margin - textWidth; // default right
+    if (position.includes('center')) {
+      x = (width - textWidth) / 2;
+    } else if (position.includes('left')) {
+      x = margin;
+    }
+
+    // Calculate Y coordinate (pdf-lib y=0 is at bottom)
+    let y = margin; // default bottom
+    if (position.includes('top')) {
+      y = height - margin - textHeight;
+    }
+
+    page.drawText(text, {
+      x,
+      y,
+      size: fontSize,
+      font,
+      color: rgb(0.2, 0.25, 0.33), // Slate-700 formal dark gray
+    });
+  }
+
+  return await pdfDoc.save();
+}
+

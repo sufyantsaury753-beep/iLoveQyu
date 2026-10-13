@@ -22,6 +22,15 @@ export const PDF_TOOLS: PDFTool[] = [
     featured: true,
   },
   {
+    id: 'page-number',
+    title: 'Nomor Halaman PDF',
+    description: 'Beri nomor halaman otomatis (1, 2, 3 atau Halaman 1 dari N) di posisi bawah/atas untuk skripsi, laporan, dan dokumen kantor.',
+    badge: 'Skripsi & Laporan',
+    category: 'organize',
+    icon: 'Hash',
+    popular: true,
+  },
+  {
     id: 'merge',
     title: 'Merge PDF',
     description: 'Gabungkan dua atau lebih file PDF menjadi satu dokumen utuh dengan urutan yang rapi.',
