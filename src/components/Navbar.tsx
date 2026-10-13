@@ -1,16 +1,20 @@
 import React from 'react';
-import { FileText, Heart } from 'lucide-react';
+import { FileText, Heart, Download } from 'lucide-react';
 
 interface NavbarProps {
   onReset: () => void;
   onNavigate: (sectionId: string) => void;
   onOpenOwnerModal?: () => void;
+  onInstallClick?: () => void;
+  isInstalled?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   onReset,
   onNavigate,
   onOpenOwnerModal,
+  onInstallClick,
+  isInstalled,
 }) => {
   return (
     <header className="sticky top-0 z-40 backdrop-blur-md bg-white/80 border-b border-slate-200/70 transition-all duration-200">
@@ -59,13 +63,26 @@ export const Navbar: React.FC<NavbarProps> = ({
         </nav>
 
         {/* Right Badges */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Install App Button */}
+          {!isInstalled && onInstallClick && (
+            <button
+              type="button"
+              onClick={onInstallClick}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-xs shadow-indigo-500/20 active:scale-95 transition-all cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span className="hidden sm:inline">Install Aplikasi</span>
+              <span className="sm:hidden">Install</span>
+            </button>
+          )}
+
           {/* Secret Version Button: Click to open Owner Modal */}
           <button
             type="button"
             onClick={onOpenOwnerModal}
             title="v1.0"
-            className="flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer select-none active:scale-95 focus:outline-none"
+            className="flex items-center px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer select-none active:scale-95 focus:outline-none"
           >
             <span>v1.0</span>
           </button>
