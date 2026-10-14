@@ -14,25 +14,37 @@ export function usePWA() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+  const [isWebView, setIsWebView] = useState(false);
 
   useEffect(() => {
-    // 1. Check if already installed / running in standalone mode
+    // 1. Detect platform and browser environment
+    const ua = (typeof window !== 'undefined' && window.navigator ? window.navigator.userAgent : '').toLowerCase();
+    const androidDetected = /android/.test(ua);
+    const iosDetected = /iphone|ipad|ipod/.test(ua) && !('MSStream' in window);
+    
+    // Check for in-app browsers (WhatsApp, Telegram, Instagram, Facebook, TikTok, Line, or Android WebView)
+    const webViewDetected =
+      /fban|fbav|instagram|line|micromessenger|telegram|whatsapp|bytedance|tiktok/.test(ua) ||
+      (androidDetected && /wv|\.wv/.test(ua));
+
+    setIsAndroid(androidDetected);
+    setIsIOS(iosDetected);
+    setIsWebView(webViewDetected);
+
+    // 2. Check if already installed / running in standalone mode
     const checkStandalone = () => {
       const isStandaloneMatch = window.matchMedia('(display-mode: standalone)').matches;
       const isIOSStandalone = (navigator as unknown as { standalone?: boolean }).standalone === true;
-      setIsInstalled(isStandaloneMatch || isIOSStandalone);
+      const isAndroidApp = typeof document !== 'undefined' && document.referrer.includes('android-app://');
+      setIsInstalled(isStandaloneMatch || isIOSStandalone || isAndroidApp);
     };
 
     checkStandalone();
 
-    // 2. Check if device is iOS (Safari doesn't fire beforeinstallprompt, requires manual Add to Home Screen)
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isAppleDevice = /iphone|ipad|ipod/.test(userAgent) && !('MSStream' in window);
-    setIsIOS(isAppleDevice);
-
-    // 3. Register Service Worker
+    // 3. Register Service Worker reliably
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
+      const registerSW = () => {
         navigator.serviceWorker
           .register('./sw.js')
           .then((reg) => {
@@ -41,7 +53,13 @@ export function usePWA() {
           .catch((err) => {
             console.error('PWA Service Worker registration error:', err);
           });
-      });
+      };
+
+      if (document.readyState === 'complete') {
+        registerSW();
+      } else {
+        window.addEventListener('load', registerSW);
+      }
     }
 
     // 4. Capture beforeinstallprompt for Android & Chromium browsers
@@ -75,7 +93,7 @@ export function usePWA() {
     };
   }, []);
 
-  const triggerInstall = async (): Promise<'accepted' | 'dismissed' | 'ios' | 'unsupported'> => {
+  const triggerInstall = async (): Promise<'accepted' | 'dismissed' | 'modal'> => {
     if (deferredPrompt) {
       try {
         await deferredPrompt.prompt();
@@ -87,20 +105,22 @@ export function usePWA() {
         return choice.outcome;
       } catch (err) {
         console.error('Install prompt failed:', err);
-        return 'unsupported';
+        return 'modal';
       }
-    } else if (isIOS && !isInstalled) {
-      return 'ios';
     }
 
-    return 'unsupported';
+    // When deferredPrompt is not available (e.g. iOS, in-app WebView, or browser requiring manual menu selection)
+    return 'modal';
   };
 
   return {
     isInstalled,
     isOnline,
     isIOS,
-    canInstall: !isInstalled && (!!deferredPrompt || isIOS),
+    isAndroid,
+    isWebView,
+    hasNativePrompt: !!deferredPrompt,
+    canInstall: !isInstalled,
     triggerInstall,
   };
 }

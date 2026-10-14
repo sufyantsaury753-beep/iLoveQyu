@@ -7,11 +7,11 @@ import { TrustSection } from './components/TrustSection';
 import { FAQSection } from './components/FAQSection';
 import { Footer } from './components/Footer';
 import { OwnerModal } from './components/OwnerModal';
-import { IosInstallModal } from './components/IosInstallModal';
+import { InstallModal } from './components/InstallModal';
 import { usePWA } from './hooks/usePWA';
 import { PDF_TOOLS } from './data/tools';
 import type { ToolId } from './types';
-import { WifiOff, Download, X } from 'lucide-react';
+import { WifiOff, Download, X, ExternalLink } from 'lucide-react';
 
 export function App() {
   const [activeToolId, setActiveToolId] = useState<ToolId | null>(null);
@@ -20,9 +20,10 @@ export function App() {
   const [isOwnerModalOpen, setIsOwnerModalOpen] = useState(false);
 
   // PWA & Offline State
-  const { isInstalled, isOnline, canInstall, triggerInstall } = usePWA();
-  const [isIosModalOpen, setIsIosModalOpen] = useState(false);
+  const { isInstalled, isOnline, isIOS, isAndroid, isWebView, canInstall, triggerInstall } = usePWA();
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
+  const [isWebViewDismissed, setIsWebViewDismissed] = useState(false);
 
   const activeTool = PDF_TOOLS.find((t) => t.id === activeToolId);
 
@@ -48,8 +49,8 @@ export function App() {
 
   const handleInstallClick = async () => {
     const outcome = await triggerInstall();
-    if (outcome === 'ios') {
-      setIsIosModalOpen(true);
+    if (outcome === 'modal' || outcome === 'dismissed') {
+      setIsInstallModalOpen(true);
     }
   };
 
@@ -63,6 +64,33 @@ export function App() {
         </div>
       )}
 
+      {/* In-App Browser Reminder (Telegram/WhatsApp WebView) */}
+      {isWebView && !isInstalled && !isWebViewDismissed && (
+        <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white text-xs font-medium py-2 px-4 flex items-center justify-between gap-2 shadow-xs z-40 sticky top-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <ExternalLink className="w-4 h-4 shrink-0" />
+            <span className="truncate">
+              Buka di <strong>Google Chrome</strong> (titik 3 ⋮ &gt; Buka di Browser) untuk pasang aplikasi di HP!
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setIsInstallModalOpen(true)}
+              className="underline font-bold hover:text-amber-100 cursor-pointer text-[11px]"
+            >
+              Panduan
+            </button>
+            <button
+              onClick={() => setIsWebViewDismissed(true)}
+              className="p-1 hover:bg-amber-800/50 rounded transition-colors cursor-pointer"
+              aria-label="Tutup notifikasi"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Secret Owner Modal */}
       <OwnerModal
         isOpen={isOwnerModalOpen}
@@ -70,10 +98,13 @@ export function App() {
         onStatusChange={() => {}}
       />
 
-      {/* iOS Installation Instruction Modal */}
-      <IosInstallModal
-        isOpen={isIosModalOpen}
-        onClose={() => setIsIosModalOpen(false)}
+      {/* Universal Installation Instruction Modal */}
+      <InstallModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        isIOS={isIOS}
+        isAndroid={isAndroid}
+        isWebView={isWebView}
       />
 
       <Navbar
